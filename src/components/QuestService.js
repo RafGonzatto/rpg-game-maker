@@ -1,31 +1,69 @@
-import { questData } from "./questData";
+// QuestService.js
+import { questData, factionColors } from "./questData";
 
-export const getInitialMissions = () => {
+const initialFactions = [
+  { name: "Gangue Rival", bgColor: "#ef4444", borderColor: "#b91c1c" },
+  { name: "Negócios", bgColor: "#3b82f6", borderColor: "#1e40af" },
+  { name: "Combate", bgColor: "#10b981", borderColor: "#047857" },
+  { name: "Tutorial", bgColor: "#f59e0b", borderColor: "#d97706" },
+  { name: "Diplomacia", bgColor: "#6366f1", borderColor: "#4f46e5" },
+  { name: "Aliados", bgColor: "#8b5cf6", borderColor: "#7c3aed" },
+];
+const initialTypes = [
+  "Cutscene",
+  "Diálogo",
+  "Batalha",
+  "Negociação",
+  "Recrutamento",
+  "Acordo",
+];
+
+export const getInitialData = () => {
   try {
     const saved = localStorage.getItem("questData");
-    return saved ? JSON.parse(saved).missions : questData.missions;
-  } catch {
-    return questData.missions;
+    if (saved) {
+      let data = JSON.parse(saved);
+      // Desaninha se houver aninhamento indevido
+      while (data.missions && data.missions.missions) {
+        data.missions = data.missions.missions;
+      }
+      // Se as facções ou tipos estiverem vazios, use os valores iniciais
+      if (!data.factions || data.factions.length === 0) {
+        data.factions = initialFactions;
+      }
+      if (!data.types || data.types.length === 0) {
+        data.types = initialTypes;
+      }
+      return data;
+    }
+  } catch (e) {
+    console.error(e);
   }
+  const initialData = {
+    missions: questData.missions,
+    factions: initialFactions,
+    types: initialTypes,
+  };
+  saveData(initialData.missions, initialData.factions, initialData.types);
+  return initialData;
 };
 
-export const saveMissions = (missions) => {
+export const saveData = (missions, factions, types) => {
   try {
     localStorage.setItem(
       "questData",
-      JSON.stringify({ missions, factions: questData.factions })
+      JSON.stringify({ missions, factions, types })
     );
   } catch (e) {
     console.error(e);
   }
 };
 
-export const exportData = (missions) => {
+export const exportData = (missions, factions, types) => {
   try {
-    const blob = new Blob(
-      [JSON.stringify({ missions, factions: questData.factions })],
-      { type: "application/json" }
-    );
+    const blob = new Blob([JSON.stringify({ missions, factions, types })], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `quest_data_${new Date().toISOString()}.json`;
@@ -35,15 +73,20 @@ export const exportData = (missions) => {
   }
 };
 
-export const importData = (e, setMissions) => {
+export const importData = (e, setMissions, setFactions, setTypes) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!data.missions || !data.factions) throw new Error("Arquivo inválido");
+      if (!data.missions || !data.factions || !data.types)
+        throw new Error("Arquivo inválido");
       setMissions(data.missions);
+      setFactions(data.factions);
+      setTypes(data.types);
+      // Salva os dados importados automaticamente
+      saveData(data.missions, data.factions, data.types);
     } catch (err) {
       alert("Erro na importação: " + err.message);
     }
@@ -54,93 +97,69 @@ export const importData = (e, setMissions) => {
 export const addQuest = (prev, quest) => {
   const updated = { ...prev };
   quest.requires.forEach((pid) => {
-    if (updated[pid])
+    if (updated[pid]) {
       updated[pid] = {
         ...updated[pid],
-        unlocks: [...new Set([...updated[pid].unlocks, quest.id])],
+        unlocks: [...new Set([...(updated[pid].unlocks || []), quest.id])],
       };
+    }
   });
   return { ...updated, [quest.id]: quest };
 };
 export const calculatePositions = (missions) => {
-  // Calculate depth levels first
+  // Calcula os níveis de profundidade
   const depths = new Map();
   const childrenLinks = new Map();
 
   const calculateDepth = (id) => {
     if (depths.has(id)) return depths.get(id);
     const mission = missions[id];
-    if (!mission || !mission.requires.length) {
+    if (!mission || !mission.requires || mission.requires.length === 0) {
       depths.set(id, 0);
       return 0;
     }
-
     const parentDepths = mission.requires.map(calculateDepth);
     const depth = Math.max(...parentDepths) + 1;
     depths.set(id, depth);
-
-    // Store children relationships
     mission.requires.forEach((parentId) => {
-      if (!childrenLinks.has(parentId)) {
-        childrenLinks.set(parentId, new Set());
-      }
+      if (!childrenLinks.has(parentId)) childrenLinks.set(parentId, new Set());
       childrenLinks.get(parentId).add(id);
     });
-
     return depth;
   };
 
-  // Calculate depths for all nodes
   Object.keys(missions).forEach(calculateDepth);
 
-  // Group nodes by depth level
   const levelGroups = {};
   depths.forEach((depth, id) => {
-    if (!levelGroups[depth]) levelGroups[depth] = [];
+    levelGroups[depth] = levelGroups[depth] || [];
     levelGroups[depth].push(id);
   });
 
-  // Constants for layout
   const VERTICAL_SPACING = 180;
   const MIN_NODE_SPACING = 260;
-
-  // Calculate positions with parent proximity in mind
   const positions = {};
-
-  // Process levels from top to bottom
   const maxDepth = Math.max(...Object.keys(levelGroups).map(Number));
 
-  // Helper function to get all descendants of a node
   const getDescendants = (nodeId, visited = new Set()) => {
     if (visited.has(nodeId)) return [];
     visited.add(nodeId);
-
     const children = Array.from(childrenLinks.get(nodeId) || []);
-    const descendants = [...children];
-
+    let descendants = [...children];
     children.forEach((childId) => {
-      descendants.push(...getDescendants(childId, visited));
+      descendants = descendants.concat(getDescendants(childId, visited));
     });
-
     return descendants;
   };
 
-  // Position nodes level by level
   for (let depth = 0; depth <= maxDepth; depth++) {
     const nodesAtLevel = levelGroups[depth] || [];
-
     if (depth === 0) {
-      // Position root nodes evenly
       const totalWidth = (nodesAtLevel.length - 1) * MIN_NODE_SPACING;
       const startX = -totalWidth / 2;
-
-      // Sort root nodes by number of descendants
-      nodesAtLevel.sort((a, b) => {
-        const aDesc = getDescendants(a).length;
-        const bDesc = getDescendants(b).length;
-        return bDesc - aDesc;
-      });
-
+      nodesAtLevel.sort(
+        (a, b) => getDescendants(b).length - getDescendants(a).length
+      );
       nodesAtLevel.forEach((id, index) => {
         positions[id] = {
           x: startX + index * MIN_NODE_SPACING,
@@ -150,57 +169,30 @@ export const calculatePositions = (missions) => {
       continue;
     }
 
-    // For each node at this level, calculate ideal position based on parents
     const nodePositions = nodesAtLevel.map((id) => {
-      const parents = missions[id].requires;
+      const parents = missions[id].requires || [];
       const parentPositions = parents
         .map((pid) => positions[pid])
         .filter((pos) => pos !== undefined);
-
-      if (parentPositions.length === 0) {
-        return {
-          id,
-          x: 0, // Will be adjusted later
-          weight: getDescendants(id).length + 1,
-        };
-      }
-
-      // Calculate weighted average of parent positions
-      const avgX =
-        parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
-        parentPositions.length;
-
-      return {
-        id,
-        x: avgX,
-        weight: getDescendants(id).length + 1,
-      };
+      const avgX = parentPositions.length
+        ? parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
+          parentPositions.length
+        : 0;
+      return { id, x: avgX, weight: getDescendants(id).length + 1 };
     });
 
-    // Sort nodes by their calculated X position
     nodePositions.sort((a, b) => a.x - b.x);
-
-    // Adjust positions to maintain minimum spacing
     let prevX = nodePositions[0].x;
     for (let i = 1; i < nodePositions.length; i++) {
       const minX = prevX + MIN_NODE_SPACING;
-      if (nodePositions[i].x < minX) {
-        nodePositions[i].x = minX;
-      }
+      if (nodePositions[i].x < minX) nodePositions[i].x = minX;
       prevX = nodePositions[i].x;
     }
-
-    // Center the level
     const levelWidth =
       nodePositions[nodePositions.length - 1].x - nodePositions[0].x;
     const offset = -levelWidth / 2;
-
-    // Assign final positions
     nodePositions.forEach(({ id, x }) => {
-      positions[id] = {
-        x: x + offset,
-        y: depth * VERTICAL_SPACING,
-      };
+      positions[id] = { x: x + offset, y: depth * VERTICAL_SPACING };
     });
   }
 

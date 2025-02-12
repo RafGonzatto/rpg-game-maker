@@ -1,16 +1,20 @@
-// input.jsx
-import * as React from "react";
+// Input.jsx
+import React from "react";
 
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
+export const Input = ({ prefixIcon, className = "", ...props }) => {
   return (
-    <input
-      type={type}
-      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-      ref={ref}
-      {...props}
-    />
+    <div className="relative">
+      {prefixIcon && (
+        <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+          {prefixIcon}
+        </div>
+      )}
+      <input
+        {...props}
+        className={`${className} ${
+          prefixIcon ? "pl-10" : "pl-3"
+        } py-2 border rounded`}
+      />
+    </div>
   );
-});
-Input.displayName = "Input";
-
-export { Input };
+};

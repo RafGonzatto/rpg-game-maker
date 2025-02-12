@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
-import { calculatePositions } from "./QuestService";
+// QuestNodesView.jsx
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  calculatePositions,
+  getInitialData,
+  saveData,
+  exportData,
+  importData,
+} from "./QuestService";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 import {
   Search,
   ZoomIn,
@@ -18,14 +26,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
-import { questData, factionColors } from "./questData";
 import NewQuestForm from "./NewQuestForm";
 
-// Constants
-const CARD_WIDTH = 240;
-const CARD_HEIGHT = 120;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2;
+const CARD_WIDTH = 240,
+  CARD_HEIGHT = 120,
+  MIN_ZOOM = 0.5,
+  MAX_ZOOM = 2;
 
 const factionSvgColors = {
   "Gangue Rival": "#ef4444",
@@ -39,83 +45,86 @@ const factionSvgColors = {
 const createCurvedPath = (start, end) => {
   const deltaY = end.y - start.y;
   const controlY = start.y + deltaY * 0.5;
-
-  // Adjust control points based on horizontal distance
   const deltaX = end.x - start.x;
-  const controlPoint1X = start.x + deltaX * 0.2;
-  const controlPoint2X = end.x - deltaX * 0.2;
-
-  return `M ${start.x} ${start.y} 
-          C ${controlPoint1X} ${controlY},
-            ${controlPoint2X} ${controlY},
-            ${end.x} ${end.y}`;
+  return `M ${start.x} ${start.y} C ${start.x + deltaX * 0.2} ${controlY}, ${
+    end.x - deltaX * 0.2
+  } ${controlY}, ${end.x} ${end.y}`;
 };
-// Custom hooks
-function useTreeLayout(missions, zoom, pan, filter = "") {
-  const [treePositions, setTreePositions] = useState({});
+
+function useTreeLayout(missions, zoom, pan, filter = "", factionColors = {}) {
+  const [positions, setPositions] = useState({});
   const [connections, setConnections] = useState([]);
-  const [filteredMissions, setFilteredMissions] = useState(missions);
+  const [filtered, setFiltered] = useState(missions);
 
   useEffect(() => {
-    const filtered = Object.entries(missions).reduce((acc, [id, mission]) => {
+    const f = Object.entries(missions || {}).reduce((acc, [id, m]) => {
       if (
-        mission.title.toLowerCase().includes(filter.toLowerCase()) ||
-        mission.faction.toLowerCase().includes(filter.toLowerCase())
-      ) {
-        acc[id] = mission;
-      }
+        (m.title || "").toLowerCase().includes(filter.toLowerCase()) ||
+        (m.faction || "").toLowerCase().includes(filter.toLowerCase())
+      )
+        acc[id] = m;
       return acc;
     }, {});
-    setFilteredMissions(filtered);
+    setFiltered(f);
   }, [missions, filter]);
 
   useEffect(() => {
-    const pos = calculatePositions(filteredMissions);
-    setTreePositions(pos);
-
-    const newConnections = [];
-    Object.entries(filteredMissions).forEach(([id, quest]) => {
-      quest.unlocks.forEach((targetId) => {
-        if (!filteredMissions[targetId]) return;
-        const start = pos[id];
-        const end = pos[targetId];
+    const pos = calculatePositions(filtered);
+    setPositions(pos);
+    const conns = [];
+    Object.entries(filtered).forEach(([id, quest]) => {
+      (quest.unlocks || []).forEach((targetId) => {
+        if (!filtered[targetId]) return;
+        const start = pos[id],
+          end = pos[targetId];
         if (!start || !end) return;
         const startPoint = {
-          x: (start.x + CARD_WIDTH / 2) * zoom + pan.x,
-          y: (start.y + CARD_HEIGHT) * zoom + pan.y,
-        };
-        const endPoint = {
-          x: (end.x + CARD_WIDTH / 2) * zoom + pan.x,
-          y: end.y * zoom + pan.y,
-        };
-        newConnections.push({
+            x: (start.x + CARD_WIDTH / 2) * zoom + pan.x,
+            y: (start.y + CARD_HEIGHT) * zoom + pan.y,
+          },
+          endPoint = {
+            x: (end.x + CARD_WIDTH / 2) * zoom + pan.x,
+            y: end.y * zoom + pan.y,
+          },
+          deltaY = endPoint.y - startPoint.y,
+          controlY = startPoint.y + deltaY * 0.5,
+          deltaX = endPoint.x - startPoint.x;
+        conns.push({
           id: `${id}-${targetId}`,
           path: createCurvedPath(startPoint, endPoint),
           from: id,
           to: targetId,
-          color: factionSvgColors[quest.faction] || "#000",
+          color: factionColors[quest.faction] || "#000",
         });
       });
     });
-    setConnections(newConnections);
-  }, [filteredMissions, zoom, pan]);
+    setConnections(conns);
+  }, [filtered, zoom, pan, factionColors]);
 
-  return { positions: treePositions, connections, filteredMissions };
+  return { positions, connections, filtered };
 }
 
-// Components
 const QuestNode = React.memo(
-  ({ quest, selected, onClick, pos, onStartConnect, onRequestDelete }) => (
+  ({
+    quest,
+    selected,
+    onClick,
+    pos,
+    onStartConnect,
+    onRequestDelete,
+    factionConfig,
+  }) => (
     <div
       className={`absolute p-4 rounded-lg border-2 shadow-lg cursor-pointer transition-all transform hover:scale-105 ${
-        factionColors[quest.faction]
-      } ${selected ? "ring-4 ring-purple-500 scale-105" : ""}`}
+        selected ? "ring-4 ring-purple-500 scale-105" : ""
+      }`}
       style={{
         left: pos.x,
         top: pos.y,
         width: CARD_WIDTH,
         minHeight: CARD_HEIGHT + 10,
-        backgroundColor: "white",
+        backgroundColor: factionConfig?.bgColor || "white",
+        borderColor: factionConfig?.borderColor || "#000",
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -127,7 +136,10 @@ const QuestNode = React.memo(
         <span className="text-xs px-2 py-1 rounded bg-gray-100">
           Tipo: {quest.type}
         </span>
-        <span className="text-xs px-2 py-1 rounded bg-gray-100">
+        <span
+          className="text-xs px-2 py-1 rounded bg-gray-100"
+          style={{ backgroundColor: factionSvgColors[quest.faction] || "#fff" }}
+        >
           Facção: {quest.faction}
         </span>
       </div>
@@ -146,10 +158,8 @@ const QuestNode = React.memo(
                   <Link size={16} />
                 </div>
               </TooltipTrigger>
-
               <TooltipContent>Conectar missão</TooltipContent>
             </Tooltip>
-
             <Tooltip>
               <TooltipTrigger>
                 <div
@@ -174,6 +184,9 @@ const QuestNode = React.memo(
 const QuestDetails = ({ id, missions }) => {
   const quest = missions[id];
   if (!quest) return null;
+  const requires = quest.requires || [];
+  const unlocks = quest.unlocks || [];
+  const reputation = quest.reputation || {};
 
   return (
     <Card className="p-6 bg-white shadow-none border-2 border-gray-100">
@@ -184,9 +197,10 @@ const QuestDetails = ({ id, missions }) => {
         <div>
           <p className="font-semibold text-gray-700">Facção</p>
           <span
-            className={`px-3 py-1 rounded-full text-sm ${
-              factionColors[quest.faction]
-            }`}
+            className="px-3 py-1 rounded-full text-sm"
+            style={{
+              backgroundColor: factionSvgColors[quest.faction] || "#fff",
+            }}
           >
             {quest.faction}
           </span>
@@ -198,13 +212,12 @@ const QuestDetails = ({ id, missions }) => {
           </span>
         </div>
       </div>
-
       <div className="mt-4">
         <p className="font-semibold text-gray-700 mb-2">Requer</p>
         <div className="bg-gray-50 p-3 rounded">
-          {quest.requires.length ? (
+          {requires.length ? (
             <ul className="space-y-1">
-              {quest.requires.map((r) => (
+              {requires.map((r) => (
                 <li key={r} className="text-sm flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                   {missions[r]?.title || r}
@@ -216,13 +229,12 @@ const QuestDetails = ({ id, missions }) => {
           )}
         </div>
       </div>
-
       <div className="mt-4">
         <p className="font-semibold text-gray-700 mb-2">Desbloqueia</p>
         <div className="bg-gray-50 p-3 rounded">
-          {quest.unlocks.length ? (
+          {unlocks.length ? (
             <ul className="space-y-1">
-              {quest.unlocks.map((u) => (
+              {unlocks.map((u) => (
                 <li key={u} className="text-sm flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   {missions[u]?.title || u}
@@ -234,7 +246,6 @@ const QuestDetails = ({ id, missions }) => {
           )}
         </div>
       </div>
-
       {quest.dialogo && (
         <div className="mt-4">
           <p className="font-semibold text-gray-700 mb-2">Diálogo</p>
@@ -243,14 +254,12 @@ const QuestDetails = ({ id, missions }) => {
           </div>
         </div>
       )}
-
-      {/* Seção "Reputação" já existente */}
-      {quest.reputation && Object.keys(quest.reputation).length > 0 && (
+      {Object.keys(reputation).length > 0 && (
         <div className="mt-4">
           <p className="font-semibold text-gray-700 mb-2">Reputação</p>
           <div className="bg-gray-50 p-3 rounded">
             <ul className="space-y-1">
-              {Object.entries(quest.reputation).map(([f, v]) => (
+              {Object.entries(reputation).map(([f, v]) => (
                 <li
                   key={f}
                   className="text-sm flex items-center justify-between"
@@ -269,60 +278,11 @@ const QuestDetails = ({ id, missions }) => {
   );
 };
 
-const Controls = ({ onZoomIn, onZoomOut, onReset }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onZoomIn}
-          className="w-8 h-8"
-        >
-          <ZoomIn size={16} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Aumentar zoom</TooltipContent>
-    </Tooltip>
-
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onZoomOut}
-          className="w-8 h-8"
-        >
-          <ZoomOut size={16} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Diminuir zoom</TooltipContent>
-    </Tooltip>
-
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onReset}
-          className="w-8 h-8"
-        >
-          <Home size={16} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Resetar visualização</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
-
-// Main component
 export default function QuestNodesView({
   missions,
   setMissions,
   selectedQuest,
   setSelectedQuest,
-  onExport,
-  onImport,
   onAddQuest,
 }) {
   const [connecting, setConnecting] = useState(null);
@@ -330,24 +290,51 @@ export default function QuestNodesView({
   const [deleteId, setDeleteId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: window.innerWidth / 3, y: 50 });
-  const [isPanning, setIsPanning] = useState(false);
   const [filter, setFilter] = useState("");
   const startRef = useRef({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [factions, setFactions] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [newFaction, setNewFaction] = useState({
+    name: "",
+    bgColor: "#ffffff",
+    borderColor: "#000000",
+  });
+  const [newType, setNewType] = useState("");
 
-  const { positions, connections, filteredMissions } = useTreeLayout(
+  useEffect(() => {
+    const data = getInitialData() || { missions: {}, factions: [], types: [] };
+    setMissions(data.missions ?? {});
+    setFactions(data.factions ?? []);
+    setTypes(data.types ?? []);
+  }, []);
+
+  useEffect(() => {
+    saveData(missions, factions, types);
+  }, [missions, factions, types]);
+
+  const factionColorsMapping = useMemo(
+    () =>
+      (factions || []).reduce(
+        (acc, f) => ({ ...acc, [f.name]: f.bgColor }),
+        {}
+      ),
+    [factions]
+  );
+
+  const { positions, connections, filtered } = useTreeLayout(
     missions,
     zoom,
     pan,
-    filter
+    filter,
+    factionColorsMapping
   );
 
-  // Pan and zoom handlers
   const handlePanStart = (e) => {
-    if (e.button !== 0) return; // Only left click
+    if (e.button !== 0) return;
     setIsPanning(true);
     startRef.current = { x: e.clientX, y: e.clientY };
   };
-
   const handlePanMove = (e) => {
     if (!isPanning) return;
     const dx = e.clientX - startRef.current.x,
@@ -355,18 +342,13 @@ export default function QuestNodesView({
     setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
     startRef.current = { x: e.clientX, y: e.clientY };
   };
-
   const handlePanEnd = () => setIsPanning(false);
-
   const handleZoomIn = () => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2));
-
   const handleZoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, z / 1.2));
-
   const handleReset = () => {
     setZoom(1);
     setPan({ x: window.innerWidth / 3, y: 50 });
   };
-
   const handleWheel = (e) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
@@ -383,13 +365,14 @@ export default function QuestNodesView({
       window.removeEventListener("mouseup", handlePanEnd);
     };
   }, []);
-  const sectionRef = useRef(null);
 
+  const sectionRef = useRef(null);
   useEffect(() => {
     const sec = sectionRef.current;
     sec?.addEventListener("wheel", handleWheel, { passive: false });
     return () => sec?.removeEventListener("wheel", handleWheel);
   }, []);
+
   const hasPath = (m, from, to, visited = new Set()) => {
     if (from === to) return true;
     if (visited.has(from)) return false;
@@ -420,7 +403,6 @@ export default function QuestNodesView({
 
   const handleStartConnect = (id) => setConnecting(id);
   const handleDeleteRequest = (id) => setDeleteId(id);
-
   const handleDeleteConfirm = () => {
     const newM = { ...missions };
     Object.values(newM).forEach((q) => {
@@ -435,11 +417,25 @@ export default function QuestNodesView({
 
   const buildTempConnection = () => {
     if (!connecting || !positions[connecting]) return "";
-    const sx = (positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x,
-      sy = (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y,
-      ex = mousePos.x,
-      ey = mousePos.y;
-    return `M ${sx} ${sy} L ${ex} ${ey}`;
+    const sx = (positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x;
+    const sy = (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y;
+    return `M ${sx} ${sy} L ${mousePos.x} ${mousePos.y}`;
+  };
+
+  const handleAddFaction = (e) => {
+    e.preventDefault();
+    if (newFaction.name && !factions.find((f) => f.name === newFaction.name)) {
+      setFactions([...factions, newFaction]);
+      setNewFaction({ name: "", bgColor: "#ffffff", borderColor: "#000000" });
+    }
+  };
+
+  const handleAddType = (e) => {
+    e.preventDefault();
+    if (newType && !types.includes(newType)) {
+      setTypes([...types, newType]);
+      setNewType("");
+    }
   };
 
   return (
@@ -447,17 +443,34 @@ export default function QuestNodesView({
       <header className="p-4 bg-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <Controls
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onReset={handleReset}
-              className="bg-white/10 hover:bg-white/20"
-            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleZoomIn}
+              className="w-8 h-8"
+            >
+              <ZoomIn size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleZoomOut}
+              className="w-8 h-8"
+            >
+              <ZoomOut size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleReset}
+              className="w-8 h-8"
+            >
+              <Home size={16} />
+            </Button>
             <h1 className="text-2xl font-bold text-white">
               Visualizador de Missões
             </h1>
           </div>
-
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Input
@@ -474,16 +487,17 @@ export default function QuestNodesView({
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={onExport}
-                className="bg-white/10 text-white hover:bg-white/20 border-transparent"
+                onClick={() => exportData(missions, factions, types)}
+                className="bg-white/10 text-white border-transparent"
               >
                 Exportar
               </Button>
-
               <input
                 type="file"
                 accept=".json"
-                onChange={onImport}
+                onChange={(e) =>
+                  importData(e, setMissions, setFactions, setTypes)
+                }
                 className="hidden"
                 id="file-input-nodes"
               />
@@ -496,15 +510,20 @@ export default function QuestNodesView({
                 Importar
               </Button>
             </div>
-
             <div className="flex flex-wrap gap-2">
-              {questData.factions.map((f) => (
+              {factions.map((f) => (
                 <div
-                  key={f}
+                  key={f.name}
                   className="flex items-center gap-2 px-3 py-1 rounded-full bg-white shadow-sm"
                 >
-                  <div className={`w-3 h-3 rounded-full ${factionColors[f]}`} />
-                  <span className="text-sm">{f}</span>
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{
+                      backgroundColor: f.bgColor,
+                      border: `2px solid ${f.borderColor}`,
+                    }}
+                  />
+                  <span className="text-sm">{f.name}</span>
                 </div>
               ))}
             </div>
@@ -514,6 +533,7 @@ export default function QuestNodesView({
 
       <main className="flex-1 grid grid-cols-[70%_30%] gap-4 p-4 overflow-hidden">
         <section
+          ref={sectionRef}
           className="relative bg-white rounded-lg shadow-lg overflow-hidden"
           onMouseDown={handlePanStart}
           onMouseMove={handlePanMove}
@@ -569,7 +589,7 @@ export default function QuestNodesView({
                 height: "100%",
               }}
             >
-              {Object.entries(filteredMissions).map(
+              {Object.entries(filtered).map(
                 ([id, quest]) =>
                   positions[id] && (
                     <QuestNode
@@ -580,6 +600,9 @@ export default function QuestNodesView({
                       pos={positions[id]}
                       onStartConnect={handleStartConnect}
                       onRequestDelete={handleDeleteRequest}
+                      factionConfig={factions.find(
+                        (f) => f.name === quest.faction
+                      )}
                     />
                   )
               )}
@@ -601,8 +624,104 @@ export default function QuestNodesView({
           <NewQuestForm
             onSave={onAddQuest}
             missions={missions}
-            factions={questData.factions}
+            factions={factions}
+            types={types}
           />
+          <div className="mt-8 max-w-md">
+            <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
+
+            <form onSubmit={handleAddFaction} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="factionName">Nome da Facção</Label>
+                <Input
+                  id="factionName"
+                  type="text"
+                  placeholder="Digite o nome da facção"
+                  value={newFaction.name}
+                  onChange={(e) =>
+                    setNewFaction({ ...newFaction, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <Card className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bgColor">Cor de Fundo</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="bgColor"
+                      type="color"
+                      value={newFaction.bgColor}
+                      onChange={(e) =>
+                        setNewFaction({
+                          ...newFaction,
+                          bgColor: e.target.value,
+                        })
+                      }
+                      className="w-24 h-10 p-1 cursor-pointer"
+                      required
+                    />
+                    <span className="text-sm text-gray-600">
+                      {newFaction.bgColor}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="borderColor">Cor da Borda</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="borderColor"
+                      type="color"
+                      value={newFaction.borderColor}
+                      onChange={(e) =>
+                        setNewFaction({
+                          ...newFaction,
+                          borderColor: e.target.value,
+                        })
+                      }
+                      className="w-24 h-10 p-1 cursor-pointer"
+                      required
+                    />
+                    <span className="text-sm text-gray-600">
+                      {newFaction.borderColor}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <Label>Prévia</Label>
+                  <div
+                    className="mt-2 h-16 rounded-lg border-4"
+                    style={{
+                      backgroundColor: newFaction.bgColor,
+                      borderColor: newFaction.borderColor,
+                    }}
+                  />
+                </div>
+              </Card>
+
+              <Button type="submit" className="w-full">
+                Adicionar Facção
+              </Button>
+            </form>
+          </div>
+          <div className="mt-8">
+            <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
+            <form onSubmit={handleAddType} className="space-y-2">
+              <Input
+                type="text"
+                placeholder="Nome do Tipo"
+                value={newType}
+                onChange={(e) => setNewType(e.target.value)}
+                required
+              />
+              <Button type="submit" className="w-full">
+                Adicionar Tipo
+              </Button>
+            </form>
+          </div>
         </aside>
       </main>
 

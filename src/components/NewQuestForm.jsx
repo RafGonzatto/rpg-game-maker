@@ -1,9 +1,10 @@
+// NewQuestForm.jsx
 import React, { useState } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
 
-const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
+const NewQuestForm = ({ onSave, missions = {}, factions = [], types = [] }) => {
   const [q, setQ] = useState({
     id: "",
     title: "",
@@ -34,15 +35,6 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
     });
   };
 
-  const types = [
-    "Cutscene",
-    "Diálogo",
-    "Batalha",
-    "Negociação",
-    "Recrutamento",
-    "Acordo",
-  ];
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -54,7 +46,6 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           required
         />
       </div>
-
       <div>
         <Label htmlFor="faction">Facção</Label>
         <select
@@ -65,10 +56,10 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           required
         >
           <option value="">Selecione</option>
-          {factions.length > 0 ? (
+          {factions.length ? (
             factions.map((f) => (
-              <option key={f} value={f}>
-                {f}
+              <option key={f.name} value={f.name}>
+                {f.name}
               </option>
             ))
           ) : (
@@ -76,7 +67,6 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           )}
         </select>
       </div>
-
       <div>
         <Label htmlFor="type">Tipo</Label>
         <select
@@ -87,14 +77,17 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           required
         >
           <option value="">Selecione</option>
-          {types.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
+          {types.length ? (
+            types.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))
+          ) : (
+            <option disabled>Carregando tipos...</option>
+          )}
         </select>
       </div>
-
       <div>
         <Label htmlFor="dialogo">Diálogo</Label>
         <textarea
@@ -105,10 +98,9 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           className="w-full p-2 border rounded"
         />
       </div>
-
       <div>
         <Label>Requisitos</Label>
-        {Object.keys(missions).length > 0 ? (
+        {Object.keys(missions).length ? (
           Object.entries(missions).map(([id, m]) => (
             <label key={id} className="flex items-center space-x-2">
               <input
@@ -130,22 +122,21 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           <p className="text-gray-500">Carregando missões...</p>
         )}
       </div>
-
       <div className="space-y-2">
         <Label>Reputação</Label>
-        {factions.length > 0 ? (
+        {factions.length ? (
           factions.map((f) => (
-            <div key={f} className="flex items-center space-x-2">
-              <Label>{f}</Label>
+            <div key={f.name} className="flex items-center space-x-2">
+              <Label>{f.name}</Label>
               <Input
                 type="number"
-                value={q.reputation[f] || 0}
+                value={q.reputation[f.name] || 0}
                 onChange={(e) =>
                   setQ({
                     ...q,
                     reputation: {
                       ...q.reputation,
-                      [f]: parseInt(e.target.value) || 0,
+                      [f.name]: parseInt(e.target.value) || 0,
                     },
                   })
                 }
@@ -157,7 +148,6 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
           <p className="text-gray-500">Carregando facções...</p>
         )}
       </div>
-
       <Button type="submit" className="w-full">
         Adicionar
       </Button>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import QuestView from "./QuestView";
 import {
-  getInitialMissions,
-  saveMissions,
+  getInitialData,
+  saveData,
   exportData,
   importData,
   addQuest,
@@ -10,8 +10,8 @@ import {
 } from "./QuestService";
 
 const QuestVisualizer = () => {
-  const [missions, setMissions] = useState(getInitialMissions);
-  useEffect(() => saveMissions(missions), [missions]);
+  const [missions, setMissions] = useState(getInitialData);
+  useEffect(() => saveData(missions), [missions]);
   const [selectedQuest, setSelectedQuest] = useState(null);
   const positions = calculatePositions(missions);
 
