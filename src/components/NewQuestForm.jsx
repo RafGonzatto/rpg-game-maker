@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "./ui/Button";
-import { Input } from "./ui/input";
+import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
 
 const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
@@ -9,6 +9,7 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
     title: "",
     faction: "",
     type: "",
+    dialogo: "",
     requires: [],
     unlocks: [],
     reputation: {},
@@ -26,6 +27,7 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
       title: "",
       faction: "",
       type: "",
+      dialogo: "",
       requires: [],
       unlocks: [],
       reputation: {},
@@ -91,6 +93,17 @@ const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <Label htmlFor="dialogo">Diálogo</Label>
+        <textarea
+          id="dialogo"
+          value={q.dialogo}
+          onChange={(e) => setQ({ ...q, dialogo: e.target.value })}
+          placeholder="Insira as falas aqui"
+          className="w-full p-2 border rounded"
+        />
       </div>
 
       <div>

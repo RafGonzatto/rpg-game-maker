@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { calculatePositions } from "./QuestService";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import {
@@ -23,8 +24,6 @@ import NewQuestForm from "./NewQuestForm";
 // Constants
 const CARD_WIDTH = 240;
 const CARD_HEIGHT = 120;
-const LEVEL_HEIGHT = 180;
-const SIBLING_SPACING = 260;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 
@@ -37,63 +36,20 @@ const factionSvgColors = {
   Aliados: "#8b5cf6",
 };
 
-// Helper functions
-const calculateLevels = (missions) => {
-  const levels = {};
-  const visited = new Set();
-
-  const findLevel = (id, currentLevel = 0) => {
-    if (visited.has(id)) return;
-    visited.add(id);
-    levels[id] = Math.max(currentLevel, levels[id] || 0);
-    const quest = missions[id];
-    if (!quest) return;
-    quest.unlocks.forEach((childId) => {
-      findLevel(childId, levels[id] + 1);
-    });
-  };
-
-  Object.entries(missions).forEach(([id, quest]) => {
-    if (quest.requires.length === 0) findLevel(id);
-  });
-  Object.keys(missions).forEach((id) => {
-    if (!visited.has(id)) findLevel(id);
-  });
-  return levels;
-};
-
-const calculateXPositions = (missions, levels) => {
-  const levelGroups = {};
-  Object.entries(levels).forEach(([id, level]) => {
-    if (!missions[id]) return; // ignora missões inexistentes
-    levelGroups[level] = [...(levelGroups[level] || []), id];
-  });
-
-  const positions = {};
-  Object.entries(levelGroups).forEach(([level, ids]) => {
-    const totalWidth = (ids.length - 1) * SIBLING_SPACING;
-    const startX = -totalWidth / 2;
-    ids.sort(
-      (a, b) =>
-        missions[b].unlocks.length +
-        missions[b].requires.length -
-        (missions[a].unlocks.length + missions[a].requires.length)
-    );
-    ids.forEach((id, index) => {
-      positions[id] = {
-        x: startX + index * SIBLING_SPACING,
-        y: level * LEVEL_HEIGHT,
-      };
-    });
-  });
-  return positions;
-};
-
 const createCurvedPath = (start, end) => {
-  const midY = (start.y + end.y) / 2;
-  return `M ${start.x} ${start.y} C ${start.x} ${midY}, ${end.x} ${midY}, ${end.x} ${end.y}`;
-};
+  const deltaY = end.y - start.y;
+  const controlY = start.y + deltaY * 0.5;
 
+  // Adjust control points based on horizontal distance
+  const deltaX = end.x - start.x;
+  const controlPoint1X = start.x + deltaX * 0.2;
+  const controlPoint2X = end.x - deltaX * 0.2;
+
+  return `M ${start.x} ${start.y} 
+          C ${controlPoint1X} ${controlY},
+            ${controlPoint2X} ${controlY},
+            ${end.x} ${end.y}`;
+};
 // Custom hooks
 function useTreeLayout(missions, zoom, pan, filter = "") {
   const [treePositions, setTreePositions] = useState({});
@@ -114,16 +70,15 @@ function useTreeLayout(missions, zoom, pan, filter = "") {
   }, [missions, filter]);
 
   useEffect(() => {
-    const levels = calculateLevels(filteredMissions);
-    const positions = calculateXPositions(filteredMissions, levels);
-    setTreePositions(positions);
+    const pos = calculatePositions(filteredMissions);
+    setTreePositions(pos);
 
     const newConnections = [];
     Object.entries(filteredMissions).forEach(([id, quest]) => {
       quest.unlocks.forEach((targetId) => {
         if (!filteredMissions[targetId]) return;
-        const start = positions[id];
-        const end = positions[targetId];
+        const start = pos[id];
+        const end = pos[targetId];
         if (!start || !end) return;
         const startPoint = {
           x: (start.x + CARD_WIDTH / 2) * zoom + pan.x,
@@ -159,6 +114,7 @@ const QuestNode = React.memo(
         left: pos.x,
         top: pos.y,
         width: CARD_WIDTH,
+        minHeight: CARD_HEIGHT + 10,
         backgroundColor: "white",
       }}
       onClick={(e) => {
@@ -220,8 +176,10 @@ const QuestDetails = ({ id, missions }) => {
   if (!quest) return null;
 
   return (
-    <Card className="p-4 bg-white shadow-lg">
-      <h2 className="font-bold text-xl mb-4 border-b pb-2">{quest.title}</h2>
+    <Card className="p-6 bg-white shadow-none border-2 border-gray-100">
+      <h2 className="font-bold text-2xl mb-6 border-b pb-3 text-gray-800">
+        {quest.title}
+      </h2>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="font-semibold text-gray-700">Facção</p>
@@ -277,6 +235,16 @@ const QuestDetails = ({ id, missions }) => {
         </div>
       </div>
 
+      {quest.dialogo && (
+        <div className="mt-4">
+          <p className="font-semibold text-gray-700 mb-2">Diálogo</p>
+          <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
+            {quest.dialogo}
+          </div>
+        </div>
+      )}
+
+      {/* Seção "Reputação" já existente */}
       {quest.reputation && Object.keys(quest.reputation).length > 0 && (
         <div className="mt-4">
           <p className="font-semibold text-gray-700 mb-2">Reputação</p>
@@ -302,53 +270,49 @@ const QuestDetails = ({ id, missions }) => {
 };
 
 const Controls = ({ onZoomIn, onZoomOut, onReset }) => (
-  <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-    <div className="bg-white rounded-lg shadow-lg p-2 flex flex-col gap-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onZoomIn}
-              className="w-8 h-8"
-            >
-              <ZoomIn size={16} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Aumentar zoom</TooltipContent>
-        </Tooltip>
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomIn}
+          className="w-8 h-8"
+        >
+          <ZoomIn size={16} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Aumentar zoom</TooltipContent>
+    </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onZoomOut}
-              className="w-8 h-8"
-            >
-              <ZoomOut size={16} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Diminuir zoom</TooltipContent>
-        </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomOut}
+          className="w-8 h-8"
+        >
+          <ZoomOut size={16} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Diminuir zoom</TooltipContent>
+    </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onReset}
-              className="w-8 h-8"
-            >
-              <Home size={16} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Resetar visualização</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onReset}
+          className="w-8 h-8"
+        >
+          <Home size={16} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Resetar visualização</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
 );
 
 // Main component
@@ -480,58 +444,70 @@ export default function QuestNodesView({
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <header className="p-4 bg-white shadow-sm">
+      <header className="p-4 bg-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Visualizador de Missões
-          </h1>
+          <div className="flex items-center gap-2">
+            <Controls
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onReset={handleReset}
+              className="bg-white/10 hover:bg-white/20"
+            />
+            <h1 className="text-2xl font-bold text-white">
+              Visualizador de Missões
+            </h1>
+          </div>
 
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                size={16}
-              />
+            <div className="relative flex-1">
               <Input
                 type="text"
                 placeholder="Filtrar missões..."
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="pl-10 w-64"
+                className="pl-10 w-64 bg-white/90 focus:bg-white transition-colors"
+                prefixIcon={
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
+                }
               />
             </div>
-
-            <Button variant="outline" onClick={onExport}>
-              Exportar
-            </Button>
-
-            <input
-              type="file"
-              accept=".json"
-              onChange={onImport}
-              className="hidden"
-              id="file-input-nodes"
-            />
-            <Button
-              variant="outline"
-              onClick={() =>
-                document.getElementById("file-input-nodes").click()
-              }
-            >
-              Importar
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {questData.factions.map((f) => (
-              <div
-                key={f}
-                className="flex items-center gap-2 px-3 py-1 rounded-full bg-white shadow-sm"
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={onExport}
+                className="bg-white/10 text-white hover:bg-white/20 border-transparent"
               >
-                <div className={`w-3 h-3 rounded-full ${factionColors[f]}`} />
-                <span className="text-sm">{f}</span>
-              </div>
-            ))}
+                Exportar
+              </Button>
+
+              <input
+                type="file"
+                accept=".json"
+                onChange={onImport}
+                className="hidden"
+                id="file-input-nodes"
+              />
+              <Button
+                variant="outline"
+                onClick={() =>
+                  document.getElementById("file-input-nodes").click()
+                }
+              >
+                Importar
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {questData.factions.map((f) => (
+                <div
+                  key={f}
+                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-white shadow-sm"
+                >
+                  <div className={`w-3 h-3 rounded-full ${factionColors[f]}`} />
+                  <span className="text-sm">{f}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </header>
@@ -546,7 +522,7 @@ export default function QuestNodesView({
           }}
           style={{ cursor: isPanning ? "grabbing" : "grab" }}
         >
-          <div className="relative h-[80%] w-full overflow-hidden">
+          <div className="relative h-[60%] w-full overflow-hidden">
             <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
               <defs>
                 <marker
@@ -610,13 +586,7 @@ export default function QuestNodesView({
             </div>
           </div>
 
-          <Controls
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onReset={handleReset}
-          />
-
-          <div className="h-[20%] overflow-auto p-4 border-t">
+          <div className="h-[40%] overflow-auto p-4 border-t">
             {selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}
