@@ -34,14 +34,25 @@ const buttonVariants = cva(
 );
 
 const Button = React.forwardRef(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
+    const hasButtonChild = React.Children.toArray(children).some(
+      (child) => React.isValidElement(child) && child.type === "button"
+    );
+
+    if (hasButtonChild) {
+      console.warn("Evite aninhar um <Button> dentro de outro <Button>");
+    }
+
+    const Comp = asChild && !hasButtonChild ? Slot : "button";
+
     return (
       <Comp
         className={buttonVariants({ variant, size, className })}
         ref={ref}
         {...props}
-      />
+      >
+        {children}
+      </Comp>
     );
   }
 );

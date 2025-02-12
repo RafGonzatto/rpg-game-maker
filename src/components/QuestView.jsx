@@ -16,8 +16,8 @@ export default function QuestView({
   return (
     <div>
       <header className="p-2 flex gap-2">
-        <button onClick={() => setView("nodes")}>Visualização de Nós</button>
-        <button onClick={() => setView("graph")}>Visualização de Grafó</button>
+        <div onClick={() => setView("nodes")}>Visualização de Nós</div>
+        <div onClick={() => setView("graph")}>Visualização de Grafó</div>
       </header>
       {view === "nodes" ? (
         <QuestNodesView
