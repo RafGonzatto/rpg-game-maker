@@ -1,10 +1,9 @@
-// src/components/NewQuestForm.jsx
 import React, { useState } from "react";
 import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
+import { Input } from "./ui/input";
 import { Label } from "./ui/Label";
 
-const NewQuestForm = ({ onSave, missions, factions }) => {
+const NewQuestForm = ({ onSave, missions = {}, factions = [] }) => {
   const [q, setQ] = useState({
     id: "",
     title: "",
@@ -53,6 +52,7 @@ const NewQuestForm = ({ onSave, missions, factions }) => {
           required
         />
       </div>
+
       <div>
         <Label htmlFor="faction">Facção</Label>
         <select
@@ -63,13 +63,18 @@ const NewQuestForm = ({ onSave, missions, factions }) => {
           required
         >
           <option value="">Selecione</option>
-          {factions.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
+          {factions.length > 0 ? (
+            factions.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))
+          ) : (
+            <option disabled>Carregando facções...</option>
+          )}
         </select>
       </div>
+
       <div>
         <Label htmlFor="type">Tipo</Label>
         <select
@@ -87,48 +92,59 @@ const NewQuestForm = ({ onSave, missions, factions }) => {
           ))}
         </select>
       </div>
+
       <div>
         <Label>Requisitos</Label>
-        {Object.entries(missions).map(([id, m]) => (
-          <label key={id} className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={q.requires.includes(id)}
-              onChange={(e) =>
-                setQ({
-                  ...q,
-                  requires: e.target.checked
-                    ? [...q.requires, id]
-                    : q.requires.filter((r) => r !== id),
-                })
-              }
-            />
-            <span>{m.title}</span>
-          </label>
-        ))}
+        {Object.keys(missions).length > 0 ? (
+          Object.entries(missions).map(([id, m]) => (
+            <label key={id} className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={q.requires.includes(id)}
+                onChange={(e) =>
+                  setQ({
+                    ...q,
+                    requires: e.target.checked
+                      ? [...q.requires, id]
+                      : q.requires.filter((r) => r !== id),
+                  })
+                }
+              />
+              <span>{m.title}</span>
+            </label>
+          ))
+        ) : (
+          <p className="text-gray-500">Carregando missões...</p>
+        )}
       </div>
+
       <div className="space-y-2">
         <Label>Reputação</Label>
-        {factions.map((f) => (
-          <div key={f} className="flex items-center space-x-2">
-            <Label>{f}</Label>
-            <Input
-              type="number"
-              value={q.reputation[f] || 0}
-              onChange={(e) =>
-                setQ({
-                  ...q,
-                  reputation: {
-                    ...q.reputation,
-                    [f]: parseInt(e.target.value) || 0,
-                  },
-                })
-              }
-              className="w-20"
-            />
-          </div>
-        ))}
+        {factions.length > 0 ? (
+          factions.map((f) => (
+            <div key={f} className="flex items-center space-x-2">
+              <Label>{f}</Label>
+              <Input
+                type="number"
+                value={q.reputation[f] || 0}
+                onChange={(e) =>
+                  setQ({
+                    ...q,
+                    reputation: {
+                      ...q.reputation,
+                      [f]: parseInt(e.target.value) || 0,
+                    },
+                  })
+                }
+                className="w-20"
+              />
+            </div>
+          ))
+        ) : (
+          <p className="text-gray-500">Carregando facções...</p>
+        )}
       </div>
+
       <Button type="submit" className="w-full">
         Adicionar
       </Button>
