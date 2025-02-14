@@ -8,6 +8,7 @@ import {
   importData,
 } from "./QuestService";
 import { Button } from "./ui/Button";
+import ResizableLayout from "./ui/ResizableLayout";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
 import {
@@ -41,7 +42,6 @@ const factionSvgColors = {
   Diplomacia: "#6366f1",
   Aliados: "#8b5cf6",
 };
-
 const createCurvedPath = (start, end) => {
   const deltaY = end.y - start.y;
   const controlY = start.y + deltaY * 0.5;
@@ -289,7 +289,9 @@ export default function QuestNodesView({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [deleteId, setDeleteId] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: window.innerWidth / 3, y: 50 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  const containerRef = useRef(null);
   const [filter, setFilter] = useState("");
   const startRef = useRef({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -347,7 +349,10 @@ export default function QuestNodesView({
   const handleZoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, z / 1.2));
   const handleReset = () => {
     setZoom(1);
-    setPan({ x: window.innerWidth / 3, y: 50 });
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 }); // Centraliza horizontalmente
+    }
   };
   const handleWheel = (e) => {
     e.preventDefault();
@@ -429,7 +434,12 @@ export default function QuestNodesView({
       setNewFaction({ name: "", bgColor: "#ffffff", borderColor: "#000000" });
     }
   };
-
+  useEffect(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 });
+    }
+  }, []);
   const handleAddType = (e) => {
     e.preventDefault();
     if (newType && !types.includes(newType)) {
@@ -530,199 +540,203 @@ export default function QuestNodesView({
           </div>
         </div>
       </header>
-
-      <main className="flex-1 grid grid-cols-[70%_30%] gap-4 p-4 overflow-hidden">
-        <section
-          ref={sectionRef}
-          className="relative bg-white rounded-lg shadow-lg overflow-hidden"
-          onMouseDown={handlePanStart}
-          onMouseMove={handlePanMove}
-          onClick={() => {
-            if (connecting) setConnecting(null);
-          }}
-          style={{ cursor: isPanning ? "grabbing" : "grab" }}
-        >
-          <div className="relative h-[60%] w-full overflow-hidden">
-            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
-              <defs>
-                <marker
-                  id="arrowhead"
-                  markerWidth="10"
-                  markerHeight="7"
-                  refX="9"
-                  refY="3.5"
-                  orient="auto"
-                >
-                  <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
-                </marker>
-              </defs>
-              {connections.map((conn) => (
-                <path
-                  key={conn.id}
-                  d={conn.path}
-                  stroke={conn.color}
-                  strokeWidth={selectedQuest === conn.from ? 3 : 2}
-                  fill="none"
-                  markerEnd="url(#arrowhead)"
-                  className="transition-all"
-                />
-              ))}
-              {connecting && (
-                <path
-                  d={buildTempConnection()}
-                  stroke="#6b7280"
-                  strokeWidth={2}
-                  strokeDasharray="5,5"
-                  fill="none"
-                />
-              )}
-            </svg>
-
+      <main className="flex-1 p-4 overflow-hidden">
+        <ResizableLayout>
+          <section
+            ref={sectionRef}
+            className="relative bg-white rounded-lg shadow-lg overflow-hidden"
+            onMouseDown={handlePanStart}
+            onMouseMove={handlePanMove}
+            onClick={() => {
+              if (connecting) setConnecting(null);
+            }}
+            style={{ height: "calc(100vh - 180px)" }}
+          >
+            {" "}
             <div
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transformOrigin: "0 0",
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-              }}
+              className="relative h-full w-full overflow-hidden"
+              ref={containerRef} // Adicione esta linha
             >
-              {Object.entries(filtered).map(
-                ([id, quest]) =>
-                  positions[id] && (
-                    <QuestNode
-                      key={id}
-                      quest={quest}
-                      selected={selectedQuest === id}
-                      onClick={handleQuestClick}
-                      pos={positions[id]}
-                      onStartConnect={handleStartConnect}
-                      onRequestDelete={handleDeleteRequest}
-                      factionConfig={factions.find(
-                        (f) => f.name === quest.faction
-                      )}
-                    />
-                  )
-              )}
-            </div>
-          </div>
+              <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="7"
+                    refX="9"
+                    refY="3.5"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
+                  </marker>
+                </defs>
+                {connections.map((conn) => (
+                  <path
+                    key={conn.id}
+                    d={conn.path}
+                    stroke={conn.color}
+                    strokeWidth={selectedQuest === conn.from ? 3 : 2}
+                    fill="none"
+                    markerEnd="url(#arrowhead)"
+                    className="transition-all"
+                  />
+                ))}
+                {connecting && (
+                  <path
+                    d={buildTempConnection()}
+                    stroke="#6b7280"
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                    fill="none"
+                  />
+                )}
+              </svg>
 
-          <div className="h-[40%] overflow-auto p-4 border-t">
+              <div
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: "0 0",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                }}
+              >
+                {Object.entries(filtered).map(
+                  ([id, quest]) =>
+                    positions[id] && (
+                      <QuestNode
+                        key={id}
+                        quest={quest}
+                        selected={selectedQuest === id}
+                        onClick={handleQuestClick}
+                        pos={positions[id]}
+                        onStartConnect={handleStartConnect}
+                        onRequestDelete={handleDeleteRequest}
+                        factionConfig={factions.find(
+                          (f) => f.name === quest.faction
+                        )}
+                      />
+                    )
+                )}
+              </div>
+            </div>
+          </section>
+          <div className="h-full p-4 border-t">
             {selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}
           </div>
-        </section>
 
-        <aside className="bg-white rounded-lg shadow-lg p-4 overflow-auto">
-          <div className="flex items-center gap-2 mb-4">
-            <Plus size={20} className="text-gray-500" />
-            <h2 className="text-lg font-bold">Nova Missão</h2>
-          </div>
-          <NewQuestForm
-            onSave={onAddQuest}
-            missions={missions}
-            factions={factions}
-            types={types}
-          />
-          <div className="mt-8 max-w-md">
-            <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
+          <aside className="h-full bg-white rounded-lg shadow-lg p-4 overflow-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <Plus size={20} className="text-gray-500" />
+              <h2 className="text-lg font-bold">Nova Missão</h2>
+            </div>
+            <NewQuestForm
+              onSave={onAddQuest}
+              missions={missions}
+              factions={factions}
+              types={types}
+            />
+            <div className="mt-8 max-w-md">
+              <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
 
-            <form onSubmit={handleAddFaction} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="factionName">Nome da Facção</Label>
-                <Input
-                  id="factionName"
-                  type="text"
-                  placeholder="Digite o nome da facção"
-                  value={newFaction.name}
-                  onChange={(e) =>
-                    setNewFaction({ ...newFaction, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <Card className="p-4 space-y-4">
+              <form onSubmit={handleAddFaction} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="bgColor">Cor de Fundo</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="bgColor"
-                      type="color"
-                      value={newFaction.bgColor}
-                      onChange={(e) =>
-                        setNewFaction({
-                          ...newFaction,
-                          bgColor: e.target.value,
-                        })
-                      }
-                      className="w-24 h-10 p-1 cursor-pointer"
-                      required
-                    />
-                    <span className="text-sm text-gray-600">
-                      {newFaction.bgColor}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="borderColor">Cor da Borda</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="borderColor"
-                      type="color"
-                      value={newFaction.borderColor}
-                      onChange={(e) =>
-                        setNewFaction({
-                          ...newFaction,
-                          borderColor: e.target.value,
-                        })
-                      }
-                      className="w-24 h-10 p-1 cursor-pointer"
-                      required
-                    />
-                    <span className="text-sm text-gray-600">
-                      {newFaction.borderColor}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <Label>Prévia</Label>
-                  <div
-                    className="mt-2 h-16 rounded-lg border-4"
-                    style={{
-                      backgroundColor: newFaction.bgColor,
-                      borderColor: newFaction.borderColor,
-                    }}
+                  <Label htmlFor="factionName">Nome da Facção</Label>
+                  <Input
+                    id="factionName"
+                    type="text"
+                    placeholder="Digite o nome da facção"
+                    value={newFaction.name}
+                    onChange={(e) =>
+                      setNewFaction({ ...newFaction, name: e.target.value })
+                    }
+                    required
                   />
                 </div>
-              </Card>
 
-              <Button type="submit" className="w-full">
-                Adicionar Facção
-              </Button>
-            </form>
-          </div>
-          <div className="mt-8">
-            <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
-            <form onSubmit={handleAddType} className="space-y-2">
-              <Input
-                type="text"
-                placeholder="Nome do Tipo"
-                value={newType}
-                onChange={(e) => setNewType(e.target.value)}
-                required
-              />
-              <Button type="submit" className="w-full">
-                Adicionar Tipo
-              </Button>
-            </form>
-          </div>
-        </aside>
+                <Card className="p-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bgColor">Cor de Fundo</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="bgColor"
+                        type="color"
+                        value={newFaction.bgColor}
+                        onChange={(e) =>
+                          setNewFaction({
+                            ...newFaction,
+                            bgColor: e.target.value,
+                          })
+                        }
+                        className="w-24 h-10 p-1 cursor-pointer"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        {newFaction.bgColor}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="borderColor">Cor da Borda</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="borderColor"
+                        type="color"
+                        value={newFaction.borderColor}
+                        onChange={(e) =>
+                          setNewFaction({
+                            ...newFaction,
+                            borderColor: e.target.value,
+                          })
+                        }
+                        className="w-24 h-10 p-1 cursor-pointer"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        {newFaction.borderColor}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <Label>Prévia</Label>
+                    <div
+                      className="mt-2 h-16 rounded-lg border-4"
+                      style={{
+                        backgroundColor: newFaction.bgColor,
+                        borderColor: newFaction.borderColor,
+                      }}
+                    />
+                  </div>
+                </Card>
+
+                <Button type="submit" className="w-full">
+                  Adicionar Facção
+                </Button>
+              </form>
+            </div>
+            <div className="mt-8">
+              <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
+              <form onSubmit={handleAddType} className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Nome do Tipo"
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  required
+                />
+                <Button type="submit" className="w-full">
+                  Adicionar Tipo
+                </Button>
+              </form>
+            </div>
+          </aside>
+        </ResizableLayout>
       </main>
 
       {deleteId && (
