@@ -15,10 +15,10 @@ export default function QuestView({
   const [view, setView] = useState("nodes");
   return (
     <div>
-      <header className="p-2 flex gap-2">
+      {/* <header className="p-2 flex gap-2">
         <div onClick={() => setView("nodes")}>Visualização de Nós</div>
         <div onClick={() => setView("graph")}>Visualização de Grafó</div>
-      </header>
+      </header> */}
       {view === "nodes" ? (
         <QuestNodesView
           missions={missions}

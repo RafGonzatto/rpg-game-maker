@@ -115,12 +115,13 @@ const QuestNode = React.memo(
     factionConfig,
   }) => (
     <div
-      className={`absolute p-4 rounded-lg border-2 shadow-lg cursor-pointer transition-all transform hover:scale-105 ${
+      className={`absolute p-4 rounded-lg border-2 shadow-lg cursor-pointer transition-all transform hover:scale-105 no-selection ${
         selected ? "ring-4 ring-purple-500 scale-105" : ""
       }`}
       style={{
         left: pos.x,
         top: pos.y,
+        zIndex: selected ? 100 : 1,
         width: CARD_WIDTH,
         minHeight: CARD_HEIGHT + 10,
         backgroundColor: factionConfig?.bgColor || "white",
@@ -130,6 +131,7 @@ const QuestNode = React.memo(
         e.stopPropagation();
         onClick(quest.id);
       }}
+      onDragStart={(e) => e.preventDefault()}
     >
       <h3 className="font-bold text-sm mb-2 truncate">{quest.title}</h3>
       <div className="flex flex-col gap-1">
@@ -144,12 +146,12 @@ const QuestNode = React.memo(
         </span>
       </div>
       {selected && (
-        <div className="absolute -right-3 top-1/2 transform -translate-y-1/2 flex flex-col gap-2">
-          <TooltipProvider>
+        <div className="absolute -right-11 z-50 top-1/2 transform-translate-y-1/2 flex flex-col gap-2">
+          <TooltipProvider className="z-50">
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
-                  className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors cursor-pointer"
+                  className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 transition-colors cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     onStartConnect(quest.id);
@@ -158,12 +160,12 @@ const QuestNode = React.memo(
                   <Link size={16} />
                 </div>
               </TooltipTrigger>
-              <TooltipContent>Conectar missão</TooltipContent>
+              <TooltipContent className="z-50">Conectar missão</TooltipContent>
             </Tooltip>
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger asChild>
                 <div
-                  className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
+                  className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRequestDelete(quest.id);
@@ -172,7 +174,7 @@ const QuestNode = React.memo(
                   <Trash2 size={16} />
                 </div>
               </TooltipTrigger>
-              <TooltipContent>Excluir missão</TooltipContent>
+              <TooltipContent className="z-50">Excluir missão</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -189,7 +191,7 @@ const QuestDetails = ({ id, missions }) => {
   const reputation = quest.reputation || {};
 
   return (
-    <Card className="p-6 bg-white shadow-none border-2 border-gray-100">
+    <Card className="p-6 bg-white shadow-none border-2 border-gray-100 ">
       <h2 className="font-bold text-2xl mb-6 border-b pb-3 text-gray-800">
         {quest.title}
       </h2>
@@ -450,7 +452,7 @@ export default function QuestNodesView({
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <header className="p-4 bg-gray-800 shadow-lg">
+      <header className="p-4 bg-gray-800 shadow-lg no-selection">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <Button
@@ -544,17 +546,20 @@ export default function QuestNodesView({
         <ResizableLayout>
           <section
             ref={sectionRef}
-            className="relative bg-white rounded-lg shadow-lg overflow-hidden"
+            className="relative bg-white rounded-lg shadow-lg overflow-visible no-selection"
             onMouseDown={handlePanStart}
             onMouseMove={handlePanMove}
             onClick={() => {
               if (connecting) setConnecting(null);
             }}
-            style={{ height: "calc(100vh - 180px)" }}
+            style={{
+              height: "calc(100vh - 180px)",
+              touchAction: "none", // Adicione esta linha
+            }}
           >
             {" "}
             <div
-              className="relative h-full w-full overflow-hidden"
+              className="relative h-full w-full overflow-hidden no-selection"
               ref={containerRef} // Adicione esta linha
             >
               <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
@@ -623,13 +628,13 @@ export default function QuestNodesView({
               </div>
             </div>
           </section>
-          <div className="h-full p-4 border-t">
+          <div className="h-full p-4 border-t no-selection">
             {selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}
           </div>
 
-          <aside className="h-full bg-white rounded-lg shadow-lg p-4 overflow-auto">
+          <aside className="h-full bg-white rounded-lg shadow-lg p-4 overflow-auto no-selection">
             <div className="flex items-center gap-2 mb-4">
               <Plus size={20} className="text-gray-500" />
               <h2 className="text-lg font-bold">Nova Missão</h2>
@@ -740,7 +745,7 @@ export default function QuestNodesView({
       </main>
 
       {deleteId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0  flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full">
             <h3 className="text-lg font-bold mb-4">Confirmar exclusão</h3>
             <p className="text-gray-600 mb-6">
