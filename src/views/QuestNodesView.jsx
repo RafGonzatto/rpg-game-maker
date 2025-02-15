@@ -1,16 +1,10 @@
-// QuestNodesView.jsx
+////////views/QuestNodesView.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import {
-  calculatePositions,
-  getInitialData,
-  saveData,
-  exportData,
-  importData,
-} from "./QuestService";
-import { Button } from "./ui/Button";
-import ResizableLayout from "./ui/ResizableLayout";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/Label";
+import useTreeLayout from "../hooks/useTreeLayout";
+import { Button } from "../components/ui/Button";
+import ResizableLayout from "../components/ui/ResizableLayout";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
 import {
   Search,
   ZoomIn,
@@ -20,13 +14,13 @@ import {
   Trash2,
   Link,
 } from "lucide-react";
-import { Card } from "./ui/Card";
+import { Card } from "../components/ui/Card";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "./ui/tooltip";
+} from "../components/ui/tooltip";
 import NewQuestForm from "./NewQuestForm";
 
 const CARD_WIDTH = 240,
@@ -42,67 +36,6 @@ const factionSvgColors = {
   Diplomacia: "#6366f1",
   Aliados: "#8b5cf6",
 };
-const createCurvedPath = (start, end) => {
-  const deltaY = end.y - start.y;
-  const controlY = start.y + deltaY * 0.5;
-  const deltaX = end.x - start.x;
-  return `M ${start.x} ${start.y} C ${start.x + deltaX * 0.2} ${controlY}, ${
-    end.x - deltaX * 0.2
-  } ${controlY}, ${end.x} ${end.y}`;
-};
-
-function useTreeLayout(missions, zoom, pan, filter = "", factionColors = {}) {
-  const [positions, setPositions] = useState({});
-  const [connections, setConnections] = useState([]);
-  const [filtered, setFiltered] = useState(missions);
-
-  useEffect(() => {
-    const f = Object.entries(missions || {}).reduce((acc, [id, m]) => {
-      if (
-        (m.title || "").toLowerCase().includes(filter.toLowerCase()) ||
-        (m.faction || "").toLowerCase().includes(filter.toLowerCase())
-      )
-        acc[id] = m;
-      return acc;
-    }, {});
-    setFiltered(f);
-  }, [missions, filter]);
-
-  useEffect(() => {
-    const pos = calculatePositions(filtered);
-    setPositions(pos);
-    const conns = [];
-    Object.entries(filtered).forEach(([id, quest]) => {
-      (quest.unlocks || []).forEach((targetId) => {
-        if (!filtered[targetId]) return;
-        const start = pos[id],
-          end = pos[targetId];
-        if (!start || !end) return;
-        const startPoint = {
-            x: (start.x + CARD_WIDTH / 2) * zoom + pan.x,
-            y: (start.y + CARD_HEIGHT) * zoom + pan.y,
-          },
-          endPoint = {
-            x: (end.x + CARD_WIDTH / 2) * zoom + pan.x,
-            y: end.y * zoom + pan.y,
-          },
-          deltaY = endPoint.y - startPoint.y,
-          controlY = startPoint.y + deltaY * 0.5,
-          deltaX = endPoint.x - startPoint.x;
-        conns.push({
-          id: `${id}-${targetId}`,
-          path: createCurvedPath(startPoint, endPoint),
-          from: id,
-          to: targetId,
-          color: factionColors[quest.faction] || "#000",
-        });
-      });
-    });
-    setConnections(conns);
-  }, [filtered, zoom, pan, factionColors]);
-
-  return { positions, connections, filtered };
-}
 
 const QuestNode = React.memo(
   ({
@@ -115,7 +48,7 @@ const QuestNode = React.memo(
     factionConfig,
   }) => (
     <div
-      className={`absolute p-4 rounded-lg border-2 shadow-lg cursor-pointer transition-all transform hover:scale-105 no-selection ${
+      className={`absolute p-4 rounded-lg border-2 shadow-lg cursor-pointer transition-all ${
         selected ? "ring-4 ring-purple-500 scale-105" : ""
       }`}
       style={{
@@ -131,7 +64,6 @@ const QuestNode = React.memo(
         e.stopPropagation();
         onClick(quest.id);
       }}
-      onDragStart={(e) => e.preventDefault()}
     >
       <h3 className="font-bold text-sm mb-2 truncate">{quest.title}</h3>
       <div className="flex flex-col gap-1">
@@ -146,8 +78,8 @@ const QuestNode = React.memo(
         </span>
       </div>
       {selected && (
-        <div className="absolute -right-11 z-50 top-1/2 transform-translate-y-1/2 flex flex-col gap-2">
-          <TooltipProvider className="z-50">
+        <div className="absolute -right-11 z-50 top-1/2 flex flex-col gap-2">
+          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
@@ -160,7 +92,7 @@ const QuestNode = React.memo(
                   <Link size={16} />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="z-50">Conectar missão</TooltipContent>
+              <TooltipContent>Conectar missão</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -174,7 +106,7 @@ const QuestNode = React.memo(
                   <Trash2 size={16} />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="z-50">Excluir missão</TooltipContent>
+              <TooltipContent>Excluir missão</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -286,36 +218,32 @@ export default function QuestNodesView({
   selectedQuest,
   setSelectedQuest,
   onAddQuest,
+  onExport,
+  onImport,
+  factions,
+  setFactions, // adicionado
+  types,
+  setTypes, // adicionado
 }) {
+  // Estados já existentes
   const [connecting, setConnecting] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [deleteId, setDeleteId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-
   const containerRef = useRef(null);
-  const [filter, setFilter] = useState("");
+  const sectionRef = useRef(null);
   const startRef = useRef({ x: 0, y: 0 });
+  const [filter, setFilter] = useState("");
   const [isPanning, setIsPanning] = useState(false);
-  const [factions, setFactions] = useState([]);
-  const [types, setTypes] = useState([]);
+
+  // Estados para os formulários de Facções/Tipos
   const [newFaction, setNewFaction] = useState({
     name: "",
     bgColor: "#ffffff",
     borderColor: "#000000",
   });
   const [newType, setNewType] = useState("");
-
-  useEffect(() => {
-    const data = getInitialData() || { missions: {}, factions: [], types: [] };
-    setMissions(data.missions ?? {});
-    setFactions(data.factions ?? []);
-    setTypes(data.types ?? []);
-  }, []);
-
-  useEffect(() => {
-    saveData(missions, factions, types);
-  }, [missions, factions, types]);
 
   const factionColorsMapping = useMemo(
     () =>
@@ -353,13 +281,15 @@ export default function QuestNodesView({
     setZoom(1);
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 }); // Centraliza horizontalmente
+      setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 });
     }
   };
   const handleWheel = (e) => {
     e.preventDefault();
-    const delta = e.deltaY * -0.001;
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (1 + delta)));
+    const newZoom = Math.max(
+      MIN_ZOOM,
+      Math.min(MAX_ZOOM, zoom * (1 - e.deltaY * 0.001))
+    );
     setZoom(newZoom);
   };
 
@@ -373,11 +303,11 @@ export default function QuestNodesView({
     };
   }, []);
 
-  const sectionRef = useRef(null);
   useEffect(() => {
-    const sec = sectionRef.current;
-    sec?.addEventListener("wheel", handleWheel, { passive: false });
-    return () => sec?.removeEventListener("wheel", handleWheel);
+    sectionRef.current?.addEventListener("wheel", handleWheel, {
+      passive: false,
+    });
+    return () => sectionRef.current?.removeEventListener("wheel", handleWheel);
   }, []);
 
   const hasPath = (m, from, to, visited = new Set()) => {
@@ -390,9 +320,8 @@ export default function QuestNodesView({
   const handleQuestClick = (id) => {
     if (connecting && connecting !== id) {
       if (hasPath(missions, id, connecting)) {
-        alert("Isto geraria um loop de dependências!");
-        setConnecting(null);
-        return;
+        alert("Loop de dependências!");
+        return setConnecting(null);
       }
       const newM = { ...missions };
       if (!newM[connecting].unlocks.includes(id)) {
@@ -401,15 +330,18 @@ export default function QuestNodesView({
       }
       setMissions(newM);
       setConnecting(null);
-    } else if (connecting === id) {
-      setConnecting(null);
     } else {
       setSelectedQuest(id);
     }
   };
 
-  const handleStartConnect = (id) => setConnecting(id);
-  const handleDeleteRequest = (id) => setDeleteId(id);
+  const buildTempConnection = () =>
+    connecting && positions[connecting]
+      ? `M ${(positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x} ${
+          (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y
+        } L ${mousePos.x} ${mousePos.y}`
+      : "";
+
   const handleDeleteConfirm = () => {
     const newM = { ...missions };
     Object.values(newM).forEach((q) => {
@@ -422,13 +354,6 @@ export default function QuestNodesView({
     if (selectedQuest === deleteId) setSelectedQuest(null);
   };
 
-  const buildTempConnection = () => {
-    if (!connecting || !positions[connecting]) return "";
-    const sx = (positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x;
-    const sy = (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y;
-    return `M ${sx} ${sy} L ${mousePos.x} ${mousePos.y}`;
-  };
-
   const handleAddFaction = (e) => {
     e.preventDefault();
     if (newFaction.name && !factions.find((f) => f.name === newFaction.name)) {
@@ -436,12 +361,7 @@ export default function QuestNodesView({
       setNewFaction({ name: "", bgColor: "#ffffff", borderColor: "#000000" });
     }
   };
-  useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 });
-    }
-  }, []);
+
   const handleAddType = (e) => {
     e.preventDefault();
     if (newType && !types.includes(newType)) {
@@ -451,94 +371,51 @@ export default function QuestNodesView({
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <header className="p-4 bg-gray-800 shadow-lg no-selection">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleZoomIn}
-              className="w-8 h-8"
-            >
-              <ZoomIn size={16} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleZoomOut}
-              className="w-8 h-8"
-            >
-              <ZoomOut size={16} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleReset}
-              className="w-8 h-8"
-            >
-              <Home size={16} />
-            </Button>
-            <h1 className="text-2xl font-bold text-white">
-              Visualizador de Missões
-            </h1>
+    <div className="h-screen flex flex-col">
+      <header className="p-4 bg-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Button onClick={handleZoomIn}>
+            <ZoomIn size={16} />
+          </Button>
+          <Button onClick={handleZoomOut}>
+            <ZoomOut size={16} />
+          </Button>
+          <Button onClick={handleReset}>
+            <Home size={16} />
+          </Button>
+          <h1 className="text-2xl font-bold text-white">
+            Visualizador de Missões
+          </h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Filtrar missões..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="pl-10"
+              prefixIcon={
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
+              }
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Input
-                type="text"
-                placeholder="Filtrar missões..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="pl-10 w-64 bg-white/90 focus:bg-white transition-colors"
-                prefixIcon={
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-                }
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => exportData(missions, factions, types)}
-                className="bg-white/10 text-white border-transparent"
-              >
-                Exportar
-              </Button>
-              <input
-                type="file"
-                accept=".json"
-                onChange={(e) =>
-                  importData(e, setMissions, setFactions, setTypes)
-                }
-                className="hidden"
-                id="file-input-nodes"
-              />
-              <Button
-                variant="outline"
-                onClick={() =>
-                  document.getElementById("file-input-nodes").click()
-                }
-              >
-                Importar
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {factions.map((f) => (
-                <div
-                  key={f.name}
-                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-white shadow-sm"
-                >
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: f.bgColor,
-                      border: `2px solid ${f.borderColor}`,
-                    }}
-                  />
-                  <span className="text-sm">{f.name}</span>
-                </div>
-              ))}
-            </div>
+          <div className="flex gap-2">
+            <Button onClick={onExport}>Exportar</Button>
+            <input
+              type="file"
+              accept=".json"
+              onChange={onImport}
+              className="hidden"
+              id="file-input-nodes"
+            />
+            <Button
+              onClick={() =>
+                document.getElementById("file-input-nodes").click()
+              }
+            >
+              Importar
+            </Button>
           </div>
         </div>
       </header>
@@ -546,21 +423,15 @@ export default function QuestNodesView({
         <ResizableLayout>
           <section
             ref={sectionRef}
-            className="relative bg-white rounded-lg shadow-lg overflow-visible no-selection"
+            className="relative bg-white rounded-lg overflow-visible"
             onMouseDown={handlePanStart}
             onMouseMove={handlePanMove}
-            onClick={() => {
-              if (connecting) setConnecting(null);
-            }}
-            style={{
-              height: "calc(100vh - 180px)",
-              touchAction: "none", // Adicione esta linha
-            }}
+            onClick={() => connecting && setConnecting(null)}
+            style={{ height: "calc(100vh - 180px)" }}
           >
-            {" "}
             <div
-              className="relative h-full w-full overflow-hidden no-selection"
-              ref={containerRef} // Adicione esta linha
+              ref={containerRef}
+              className="relative h-full w-full overflow-hidden"
             >
               <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
                 <defs>
@@ -583,7 +454,6 @@ export default function QuestNodesView({
                     strokeWidth={selectedQuest === conn.from ? 3 : 2}
                     fill="none"
                     markerEnd="url(#arrowhead)"
-                    className="transition-all"
                   />
                 ))}
                 {connecting && (
@@ -596,7 +466,6 @@ export default function QuestNodesView({
                   />
                 )}
               </svg>
-
               <div
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -617,8 +486,8 @@ export default function QuestNodesView({
                         selected={selectedQuest === id}
                         onClick={handleQuestClick}
                         pos={positions[id]}
-                        onStartConnect={handleStartConnect}
-                        onRequestDelete={handleDeleteRequest}
+                        onStartConnect={setConnecting}
+                        onRequestDelete={(id) => setDeleteId(id)}
                         factionConfig={factions.find(
                           (f) => f.name === quest.faction
                         )}
@@ -628,13 +497,12 @@ export default function QuestNodesView({
               </div>
             </div>
           </section>
-          <div className="h-full p-4 border-t no-selection">
+          <div className="h-full p-4 border-t">
             {selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}
           </div>
-
-          <aside className="h-full bg-white rounded-lg shadow-lg p-4 overflow-auto no-selection">
+          <aside className="h-full bg-white rounded-lg p-4 overflow-auto no-selection">
             <div className="flex items-center gap-2 mb-4">
               <Plus size={20} className="text-gray-500" />
               <h2 className="text-lg font-bold">Nova Missão</h2>
@@ -647,7 +515,6 @@ export default function QuestNodesView({
             />
             <div className="mt-8 max-w-md">
               <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
-
               <form onSubmit={handleAddFaction} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="factionName">Nome da Facção</Label>
@@ -662,7 +529,6 @@ export default function QuestNodesView({
                     required
                   />
                 </div>
-
                 <Card className="p-4 space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="bgColor">Cor de Fundo</Label>
@@ -685,7 +551,6 @@ export default function QuestNodesView({
                       </span>
                     </div>
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="borderColor">Cor da Borda</Label>
                     <div className="flex items-center gap-2">
@@ -707,7 +572,6 @@ export default function QuestNodesView({
                       </span>
                     </div>
                   </div>
-
                   <div className="mt-4">
                     <Label>Prévia</Label>
                     <div
@@ -719,7 +583,6 @@ export default function QuestNodesView({
                     />
                   </div>
                 </Card>
-
                 <Button type="submit" className="w-full">
                   Adicionar Facção
                 </Button>
@@ -743,15 +606,11 @@ export default function QuestNodesView({
           </aside>
         </ResizableLayout>
       </main>
-
       {deleteId && (
-        <div className="fixed inset-0  flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
             <h3 className="text-lg font-bold mb-4">Confirmar exclusão</h3>
-            <p className="text-gray-600 mb-6">
-              Tem certeza que deseja excluir esta missão? Esta ação não pode ser
-              desfeita.
-            </p>
+            <p className="mb-6">Tem certeza que deseja excluir esta missão?</p>
             <div className="flex justify-end gap-4">
               <Button variant="outline" onClick={() => setDeleteId(null)}>
                 Cancelar

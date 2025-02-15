@@ -1,8 +1,8 @@
 // NewQuestForm.jsx
 import React, { useState } from "react";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/Label";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
 
 const NewQuestForm = ({ onSave, missions = {}, factions = [], types = [] }) => {
   const [q, setQ] = useState({

@@ -1,5 +1,5 @@
-///////////////////////////////////////////////// QuestService.js
-import { questData, factionColors } from "./questData";
+//////////////////////////////controllers/QuestService.js
+import { questData } from "../components/questData";
 
 const initialFactions = [
   { name: "Gangue Rival", bgColor: "#ef4444", borderColor: "#b91c1c" },
@@ -23,17 +23,11 @@ export const getInitialData = () => {
     const saved = localStorage.getItem("questData");
     if (saved) {
       let data = JSON.parse(saved);
-      // Desaninha se houver aninhamento indevido
       while (data.missions && data.missions.missions) {
         data.missions = data.missions.missions;
       }
-      // Se as facções ou tipos estiverem vazios, use os valores iniciais
-      if (!data.factions || data.factions.length === 0) {
-        data.factions = initialFactions;
-      }
-      if (!data.types || data.types.length === 0) {
-        data.types = initialTypes;
-      }
+      data.factions = data.factions?.length ? data.factions : initialFactions;
+      data.types = data.types?.length ? data.types : initialTypes;
       return data;
     }
   } catch (e) {
@@ -85,7 +79,6 @@ export const importData = (e, setMissions, setFactions, setTypes) => {
       setMissions(data.missions);
       setFactions(data.factions);
       setTypes(data.types);
-      // Salva os dados importados automaticamente
       saveData(data.missions, data.factions, data.types);
     } catch (err) {
       alert("Erro na importação: " + err.message);
@@ -106,95 +99,77 @@ export const addQuest = (prev, quest) => {
   });
   return { ...updated, [quest.id]: quest };
 };
-export const calculatePositions = (missions) => {
-  // Calcula os níveis de profundidade
-  const depths = new Map();
-  const childrenLinks = new Map();
 
-  const calculateDepth = (id) => {
+export const calculatePositions = (missions) => {
+  const depths = new Map(),
+    childrenLinks = new Map();
+
+  const calcDepth = (id) => {
     if (depths.has(id)) return depths.get(id);
     const mission = missions[id];
-    if (!mission || !mission.requires || mission.requires.length === 0) {
+    if (!mission?.requires?.length) {
       depths.set(id, 0);
       return 0;
     }
-    const parentDepths = mission.requires.map(calculateDepth);
+    const parentDepths = mission.requires.map(calcDepth);
     const depth = Math.max(...parentDepths) + 1;
     depths.set(id, depth);
-    mission.requires.forEach((parentId) => {
-      if (!childrenLinks.has(parentId)) childrenLinks.set(parentId, new Set());
-      childrenLinks.get(parentId).add(id);
+    mission.requires.forEach((pid) => {
+      if (!childrenLinks.has(pid)) childrenLinks.set(pid, new Set());
+      childrenLinks.get(pid).add(id);
     });
     return depth;
   };
 
-  Object.keys(missions).forEach(calculateDepth);
-
+  Object.keys(missions).forEach(calcDepth);
   const levelGroups = {};
-  depths.forEach((depth, id) => {
-    levelGroups[depth] = levelGroups[depth] || [];
-    levelGroups[depth].push(id);
-  });
+  depths.forEach((d, id) => (levelGroups[d] = [...(levelGroups[d] || []), id]));
 
-  const VERTICAL_SPACING = 180;
-  const MIN_NODE_SPACING = 260;
-  const positions = {};
-  const maxDepth = Math.max(...Object.keys(levelGroups).map(Number));
+  const VERTICAL = 180,
+    MIN_NODE = 260,
+    positions = {},
+    maxDepth = Math.max(...Object.keys(levelGroups).map(Number));
 
   const getDescendants = (nodeId, visited = new Set()) => {
     if (visited.has(nodeId)) return [];
     visited.add(nodeId);
-    const children = Array.from(childrenLinks.get(nodeId) || []);
-    let descendants = [...children];
-    children.forEach((childId) => {
-      descendants = descendants.concat(getDescendants(childId, visited));
-    });
-    return descendants;
+    const children = [...(childrenLinks.get(nodeId) || [])];
+    return children.concat(
+      children.flatMap((child) => getDescendants(child, visited))
+    );
   };
 
   for (let depth = 0; depth <= maxDepth; depth++) {
-    const nodesAtLevel = levelGroups[depth] || [];
-    if (depth === 0) {
-      const totalWidth = (nodesAtLevel.length - 1) * MIN_NODE_SPACING;
-      const startX = -totalWidth / 2;
-      nodesAtLevel.sort(
-        (a, b) => getDescendants(b).length - getDescendants(a).length
-      );
-      nodesAtLevel.forEach((id, index) => {
-        positions[id] = {
-          x: startX + index * MIN_NODE_SPACING,
-          y: depth * VERTICAL_SPACING,
-        };
-      });
+    const nodes = levelGroups[depth] || [];
+    if (!depth) {
+      const startX = -((nodes.length - 1) * MIN_NODE) / 2;
+      nodes
+        .sort((a, b) => getDescendants(b).length - getDescendants(a).length)
+        .forEach(
+          (id, i) =>
+            (positions[id] = { x: startX + i * MIN_NODE, y: depth * VERTICAL })
+        );
       continue;
     }
-
-    const nodePositions = nodesAtLevel.map((id) => {
-      const parents = missions[id].requires || [];
-      const parentPositions = parents
-        .map((pid) => positions[pid])
-        .filter((pos) => pos !== undefined);
-      const avgX = parentPositions.length
-        ? parentPositions.reduce((sum, pos) => sum + pos.x, 0) /
-          parentPositions.length
-        : 0;
-      return { id, x: avgX, weight: getDescendants(id).length + 1 };
-    });
-
-    nodePositions.sort((a, b) => a.x - b.x);
-    let prevX = nodePositions[0].x;
-    for (let i = 1; i < nodePositions.length; i++) {
-      const minX = prevX + MIN_NODE_SPACING;
-      if (nodePositions[i].x < minX) nodePositions[i].x = minX;
-      prevX = nodePositions[i].x;
-    }
-    const levelWidth =
-      nodePositions[nodePositions.length - 1].x - nodePositions[0].x;
-    const offset = -levelWidth / 2;
-    nodePositions.forEach(({ id, x }) => {
-      positions[id] = { x: x + offset, y: depth * VERTICAL_SPACING };
-    });
+    const nodePositions = nodes
+      .map((id) => {
+        const parents = missions[id].requires || [];
+        const avgX =
+          parents
+            .map((pid) => positions[pid]?.x || 0)
+            .reduce((a, b) => a + b, 0) / parents.length || 0;
+        return { id, x: avgX };
+      })
+      .sort((a, b) => a.x - b.x);
+    nodePositions.reduce(
+      (prev, cur, i) => (cur.x = i ? Math.max(cur.x, prev + MIN_NODE) : cur.x),
+      nodePositions[0]?.x || 0
+    );
+    const offset =
+      -(nodePositions[nodePositions.length - 1].x - nodePositions[0].x) / 2;
+    nodePositions.forEach(
+      ({ id, x }) => (positions[id] = { x: x + offset, y: depth * VERTICAL })
+    );
   }
-
   return positions;
 };

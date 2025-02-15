@@ -1,3 +1,5 @@
+////////////////////////////views/QuestGraphView.jsx
+
 import React, { useEffect, useRef, useState } from "react";
 import {
   forceSimulation,
@@ -8,8 +10,8 @@ import {
 } from "d3-force";
 import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
-import { Button } from "./ui/Button";
-import { questData, factionColors } from "./questData";
+import { Button } from "../components/ui/Button";
+import { questData, factionColors } from "../components/questData";
 import NewQuestForm from "./NewQuestForm";
 
 const CARD_WIDTH = 200;
@@ -326,8 +328,12 @@ export default function QuestGraphView({
                 </marker>
               </defs>
               {links.map((lk, i) => {
-                const sPos = positions[lk.source];
-                const tPos = positions[lk.target];
+                const sourceId =
+                  typeof lk.source === "object" ? lk.source.id : lk.source;
+                const targetId =
+                  typeof lk.target === "object" ? lk.target.id : lk.target;
+                const sPos = positions[sourceId];
+                const tPos = positions[targetId];
                 if (!sPos || !tPos) return null;
                 return (
                   <line
@@ -342,6 +348,7 @@ export default function QuestGraphView({
                   />
                 );
               })}
+
               {nodes.map((node) => {
                 const pos = positions[node.id] || {
                   x: width / 2,
@@ -405,7 +412,7 @@ export default function QuestGraphView({
             </animated.g>
           </animated.svg>
         </div>
-        <div className="p-4 overflow-auto">
+        <div className="p-4 overflow-auto no-selection">
           {selectedQuest ? (
             <QuestDetails questId={selectedQuest} />
           ) : (
