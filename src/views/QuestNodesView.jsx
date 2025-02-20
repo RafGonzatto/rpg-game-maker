@@ -5,6 +5,7 @@ import { Button } from "../components/ui/Button";
 import ResizableLayout from "../components/ui/ResizableLayout";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
+import { AnimatedSprite, BeerAnimated } from "../utils/animation";
 import {
   Search,
   ZoomIn,
@@ -217,6 +218,7 @@ export default function QuestNodesView({
   setMissions,
   selectedQuest,
   setSelectedQuest,
+  setView,
   onAddQuest,
   onExport,
   onImport,
@@ -226,6 +228,10 @@ export default function QuestNodesView({
   setTypes, // adicionado
 }) {
   // Estados já existentes
+  const headerRef = useRef(null);
+  const hasMovedRef = useRef(false);
+  const wallRef = useRef(null);
+  const [wallRight, setWallRight] = useState(0);
   const [connecting, setConnecting] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [deleteId, setDeleteId] = useState(null);
@@ -236,6 +242,28 @@ export default function QuestNodesView({
   const startRef = useRef({ x: 0, y: 0 });
   const [filter, setFilter] = useState("");
   const [isPanning, setIsPanning] = useState(false);
+  const svgRef = useRef(null);
+
+  useEffect(() => {
+    function measure() {
+      if (headerRef.current && wallRef.current) {
+        const headerRect = headerRef.current.getBoundingClientRect();
+        const wallRect = wallRef.current.getBoundingClientRect();
+        const wallHeight = wallRef.current.clientHeight;
+        const img = new Image();
+        img.src = "../src/images/wall.png";
+        img.onload = () => {
+          const ratio = img.naturalWidth / img.naturalHeight;
+          const displayedWallWidth = wallHeight * ratio;
+          const wallLeftRelative = wallRect.left - headerRect.left;
+          setWallRight(wallLeftRelative + displayedWallWidth);
+        };
+      }
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   // Estados para os formulários de Facções/Tipos
   const [newFaction, setNewFaction] = useState({
@@ -266,15 +294,26 @@ export default function QuestNodesView({
     if (e.button !== 0) return;
     setIsPanning(true);
     startRef.current = { x: e.clientX, y: e.clientY };
+    hasMovedRef.current = false; // Reseta ao iniciar
   };
+
   const handlePanMove = (e) => {
     if (!isPanning) return;
     const dx = e.clientX - startRef.current.x,
       dy = e.clientY - startRef.current.y;
+
+    // Marca se houve movimento significativo
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      hasMovedRef.current = true;
+    }
+
     setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
     startRef.current = { x: e.clientX, y: e.clientY };
   };
-  const handlePanEnd = () => setIsPanning(false);
+
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
   const handleZoomIn = () => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2));
   const handleZoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, z / 1.2));
   const handleReset = () => {
@@ -335,12 +374,20 @@ export default function QuestNodesView({
     }
   };
 
-  const buildTempConnection = () =>
-    connecting && positions[connecting]
-      ? `M ${(positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x} ${
-          (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y
-        } L ${mousePos.x} ${mousePos.y}`
-      : "";
+  const buildTempConnection = () => {
+    if (!connecting || !positions[connecting] || !svgRef.current) return "";
+
+    // Obtém as coordenadas relativas ao SVG
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const mouseX = mousePos.x - svgRect.left;
+    const mouseY = mousePos.y - svgRect.top;
+
+    // Calcula ponto inicial com zoom/pan
+    const startX = (positions[connecting].x + CARD_WIDTH / 2) * zoom + pan.x;
+    const startY = (positions[connecting].y + CARD_HEIGHT / 2) * zoom + pan.y;
+
+    return `M ${startX} ${startY} L ${mouseX} ${mouseY}`;
+  };
 
   const handleDeleteConfirm = () => {
     const newM = { ...missions };
@@ -371,36 +418,70 @@ export default function QuestNodesView({
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      <header className="p-4 bg-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Button onClick={handleZoomIn}>
-            <ZoomIn size={16} />
-          </Button>
-          <Button onClick={handleZoomOut}>
-            <ZoomOut size={16} />
-          </Button>
-          <Button onClick={handleReset}>
-            <Home size={16} />
-          </Button>
-          <h1 className="text-2xl font-bold text-white">
-            Visualizador de Missões
-          </h1>
+    <div className="h-screen flex flex-col select-none bg-yellow-800">
+      <header
+        ref={headerRef}
+        className="relative bg-rose-600 h-[20vh] grid grid-cols-4"
+      >
+        <AnimatedSprite />
+        <div className="absolute bottom-0 left-0 w-full h-[10%]">
+          <div
+            className="w-full h-full"
+            style={{
+              backgroundImage: `url(../src/images/board.png)`,
+              imageRendering: "pixelated",
+              backgroundSize: "auto 100%",
+              backgroundRepeat: "repeat-x",
+              backgroundPosition: "bottom",
+            }}
+          />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative">
+
+        <BeerAnimated />
+        <div
+          ref={wallRef}
+          className="z-[5] absolute left-[15%] top-0 w-full h-[90%] pointer-events-none"
+        >
+          <div
+            className="w-full h-full"
+            style={{
+              backgroundImage: `url(../src/images/wall.png)`,
+              imageRendering: "pixelated",
+              backgroundSize: "auto 100%",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
+        </div>
+        {/* Seção 1: sprite animado */}
+        {/* Seção 2: sprite animado */}
+        <div className="bg-[url('/sprites/sprite2.png')] bg-cover animate-sprite" />
+        {/* Seção 3: botões e título */}
+        <div className="flex flex-col justify-center p-4">
+          <h1
+            className="z-[40] text-2xl font-bold text-white pointer-events-none"
+            style={{
+              position: "absolute",
+              left: wallRight + 10, // inicia logo após o final da imagem da wall
+              top: 0,
+            }}
+          >
+            Missões
+          </h1>
+          <div
+            className="relative flex items-center gap-4"
+            style={{
+              position: "absolute",
+              left: wallRight + 10, // inicia logo após o final da imagem da wall
+            }}
+          >
             <Input
               type="text"
-              placeholder="Filtrar missões..."
+              placeholder="   Filtrar missões..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10"
-              prefixIcon={
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" />
-              }
+              className="pl-10 bg-amber-50"
+              prefixIcon={<Search />}
             />
-          </div>
-          <div className="flex gap-2">
             <Button onClick={onExport}>Exportar</Button>
             <input
               type="file"
@@ -419,6 +500,7 @@ export default function QuestNodesView({
           </div>
         </div>
       </header>
+      {/*  */}
       <main className="flex-1 p-4 overflow-hidden">
         <ResizableLayout>
           <section
@@ -426,14 +508,21 @@ export default function QuestNodesView({
             className="relative bg-white rounded-lg overflow-visible"
             onMouseDown={handlePanStart}
             onMouseMove={handlePanMove}
-            onClick={() => connecting && setConnecting(null)}
+            onClick={() => {
+              if (!hasMovedRef.current && connecting) {
+                setConnecting(null);
+              }
+            }}
             style={{ height: "calc(100vh - 180px)" }}
           >
             <div
               ref={containerRef}
-              className="relative h-full w-full overflow-hidden"
+              className="bg-yellow-50 relative h-full w-full overflow-hidden select-none"
             >
-              <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
+              <svg
+                ref={svgRef} // Adicione esta linha
+                className="absolute top-0 left-0 w-full h-full pointer-events-none"
+              >
                 <defs>
                   <marker
                     id="arrowhead"
@@ -466,6 +555,17 @@ export default function QuestNodesView({
                   />
                 )}
               </svg>
+              <div className="absolute top-4 left-4 flex gap-2 z-[100]">
+                <Button onClick={handleZoomIn}>
+                  <ZoomIn size={16} />
+                </Button>
+                <Button onClick={handleZoomOut}>
+                  <ZoomOut size={16} />
+                </Button>
+                <Button onClick={handleReset}>
+                  <Home size={16} />
+                </Button>
+              </div>
               <div
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -497,7 +597,7 @@ export default function QuestNodesView({
               </div>
             </div>
           </section>
-          <div className="h-full p-4 border-t">
+          <div className="h-full p-4 border-t select-none">
             {selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}

@@ -26,14 +26,11 @@ export default function QuestVisualizer() {
 
   return (
     <div>
-      <header className="p-2 flex gap-2">
-        <button onClick={() => setView("nodes")}>Nós</button>
-        <button onClick={() => setView("graph")}>Grafó</button>
-      </header>
       {view === "nodes" ? (
         <QuestNodesView
           missions={missions}
           setMissions={setMissions}
+          setView={setView}
           selectedQuest={selectedQuest}
           setSelectedQuest={setSelectedQuest}
           onExport={() => exportData(missions, factions, types)}
