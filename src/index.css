@@ -18,7 +18,16 @@ h1 {
   font-size: 3.2em;
   line-height: 1.1;
 }
+#main-container {
+  display: grid;
+  grid-template-rows: 1fr;
+}
 
+.left-container {
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+}
 button {
   border-radius: 8px;
   border: 1px solid transparent;

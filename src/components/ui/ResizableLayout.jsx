@@ -1,3 +1,4 @@
+//////ResizableLayout.jsx
 import React, { useState, useEffect } from "react";
 
 const COLORS = {
@@ -7,10 +8,13 @@ const COLORS = {
   containerBg: "bg-white",
 };
 
-const ResizableLayout = ({ children }) => {
-  const [verticalDividerPosition, setVerticalDividerPosition] = useState(70);
-  const [horizontalDividerPosition, setHorizontalDividerPosition] =
-    useState(60);
+const ResizableLayout = ({
+  children,
+  verticalDividerPosition,
+  horizontalDividerPosition,
+  onVerticalDividerChange,
+  onHorizontalDividerChange,
+}) => {
   const [isDragging, setIsDragging] = useState({
     vertical: false,
     horizontal: false,
@@ -25,11 +29,11 @@ const ResizableLayout = ({ children }) => {
 
       if (isDragging.vertical || isDragging.corner) {
         const newVertical = ((e.clientX - left) / width) * 100;
-        setVerticalDividerPosition(Math.min(Math.max(newVertical, 20), 80));
+        onVerticalDividerChange(Math.min(Math.max(newVertical, 20), 80));
       }
       if (isDragging.horizontal || isDragging.corner) {
         const newHorizontal = ((e.clientY - top) / height) * 100;
-        setHorizontalDividerPosition(Math.min(Math.max(newHorizontal, 20), 80));
+        onHorizontalDividerChange(Math.min(Math.max(newHorizontal, 20), 80));
       }
     };
 
@@ -42,7 +46,7 @@ const ResizableLayout = ({ children }) => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, onVerticalDividerChange, onHorizontalDividerChange]);
 
   const cornerSize = 15;
   const cornerStyle = {
@@ -81,7 +85,7 @@ const ResizableLayout = ({ children }) => {
       <div
         id="left-container"
         className={`relative ${COLORS.containerBg} rounded-lg shadow-lg overflow-hidden`}
-        style={{ height: "100%" }}
+        style={{ height: "100%", gridColumn: "1 / 2" }}
       >
         <div
           style={{ height: `${horizontalDividerPosition}%` }}
@@ -130,9 +134,14 @@ const ResizableLayout = ({ children }) => {
 
       <aside
         className={`${COLORS.containerBg} rounded-lg shadow-lg p-4 overflow-auto`}
+        style={{ gridColumn: "2 / 3", height: "100%" }}
       >
         {children[2]}
       </aside>
+      <div
+        style={cornerStyle}
+        onMouseDown={() => setIsDragging({ ...isDragging, corner: true })}
+      />
     </div>
   );
 };

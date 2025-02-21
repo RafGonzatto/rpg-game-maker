@@ -14,6 +14,9 @@ import {
   Plus,
   Trash2,
   Link,
+  Minimize2,
+  Maximize2,
+  ChevronRight,
 } from "lucide-react";
 import { Card } from "../components/ui/Card";
 import {
@@ -243,6 +246,40 @@ export default function QuestNodesView({
   const [filter, setFilter] = useState("");
   const [isPanning, setIsPanning] = useState(false);
   const svgRef = useRef(null);
+  const [verticalDividerPosition, setVerticalDividerPosition] = useState(70);
+  const [horizontalDividerPosition, setHorizontalDividerPosition] =
+    useState(60);
+  const [minimized, setMinimized] = useState({ form: false, details: false });
+  const [previousPositions, setPreviousPositions] = useState({
+    vertical: 70,
+    horizontal: 60,
+  });
+
+  const toggleSection = (section) => {
+    if (section === "form") {
+      if (minimized.form) {
+        setVerticalDividerPosition(previousPositions.vertical);
+      } else {
+        setPreviousPositions((prev) => ({
+          ...prev,
+          vertical: verticalDividerPosition,
+        }));
+        setVerticalDividerPosition(98); // Reduz para 2% da largura
+      }
+      setMinimized((prev) => ({ ...prev, form: !prev.form }));
+    } else {
+      if (minimized.details) {
+        setHorizontalDividerPosition(previousPositions.horizontal);
+      } else {
+        setPreviousPositions((prev) => ({
+          ...prev,
+          horizontal: horizontalDividerPosition,
+        }));
+        setHorizontalDividerPosition(98); // Reduz para 2% da altura
+      }
+      setMinimized((prev) => ({ ...prev, details: !prev.details }));
+    }
+  };
 
   useEffect(() => {
     function measure() {
@@ -502,7 +539,12 @@ export default function QuestNodesView({
       </header>
       {/*  */}
       <main className="flex-1 p-4 overflow-hidden">
-        <ResizableLayout>
+        <ResizableLayout
+          verticalDividerPosition={verticalDividerPosition}
+          horizontalDividerPosition={horizontalDividerPosition}
+          onVerticalDividerChange={setVerticalDividerPosition}
+          onHorizontalDividerChange={setHorizontalDividerPosition}
+        >
           <section
             ref={sectionRef}
             className="relative bg-white rounded-lg overflow-visible"
@@ -597,113 +639,140 @@ export default function QuestNodesView({
               </div>
             </div>
           </section>
-          <div className="h-full p-4 border-t select-none">
-            {selectedQuest && (
+          {/* Children[1] - Detalhes da Missão */}
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold">Detalhes da Missão</h3>
+              <Button onClick={() => toggleSection("details")}>
+                {minimized.details ? <Maximize2 /> : <Minimize2 />}
+              </Button>
+            </div>
+            {!minimized.details && selectedQuest && (
               <QuestDetails id={selectedQuest} missions={missions} />
             )}
           </div>
-          <aside className="h-full bg-white rounded-lg p-4 overflow-auto no-selection">
-            <div className="flex items-center gap-2 mb-4">
-              <Plus size={20} className="text-gray-500" />
-              <h2 className="text-lg font-bold">Nova Missão</h2>
-            </div>
-            <NewQuestForm
-              onSave={onAddQuest}
-              missions={missions}
-              factions={factions}
-              types={types}
-            />
-            <div className="mt-8 max-w-md">
-              <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
-              <form onSubmit={handleAddFaction} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="factionName">Nome da Facção</Label>
-                  <Input
-                    id="factionName"
-                    type="text"
-                    placeholder="Digite o nome da facção"
-                    value={newFaction.name}
-                    onChange={(e) =>
-                      setNewFaction({ ...newFaction, name: e.target.value })
-                    }
-                    required
-                  />
+          {/* Children[2] - Formulário */}
+          <div className="h-full">
+            {minimized.form ? (
+              <div className="flex items-center justify-center h-full">
+                <Button onClick={() => toggleSection("form")}>
+                  <ChevronRight size={24} />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center p-4 border-b">
+                  <h2 className="text-lg font-bold">Nova Missão</h2>
+                  <Button onClick={() => toggleSection("form")}>
+                    <Minimize2 size={16} />
+                  </Button>
                 </div>
-                <Card className="p-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bgColor">Cor de Fundo</Label>
-                    <div className="flex items-center gap-2">
+                <div className="p-4 overflow-auto h-[calc(100%-56px)]">
+                  <NewQuestForm
+                    onSave={onAddQuest}
+                    missions={missions}
+                    factions={factions}
+                    types={types}
+                  />
+                  <div className="mt-8 max-w-md">
+                    <h2 className="text-lg font-bold mb-4">
+                      Gerenciar Facções
+                    </h2>
+                    <form onSubmit={handleAddFaction} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="factionName">Nome da Facção</Label>
+                        <Input
+                          id="factionName"
+                          type="text"
+                          placeholder="Digite o nome da facção"
+                          value={newFaction.name}
+                          onChange={(e) =>
+                            setNewFaction({
+                              ...newFaction,
+                              name: e.target.value,
+                            })
+                          }
+                          required
+                        />
+                      </div>
+                      <Card className="p-4 space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="bgColor">Cor de Fundo</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id="bgColor"
+                              type="color"
+                              value={newFaction.bgColor}
+                              onChange={(e) =>
+                                setNewFaction({
+                                  ...newFaction,
+                                  bgColor: e.target.value,
+                                })
+                              }
+                              className="w-24 h-10 p-1 cursor-pointer"
+                              required
+                            />
+                            <span className="text-sm text-gray-600">
+                              {newFaction.bgColor}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="borderColor">Cor da Borda</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id="borderColor"
+                              type="color"
+                              value={newFaction.borderColor}
+                              onChange={(e) =>
+                                setNewFaction({
+                                  ...newFaction,
+                                  borderColor: e.target.value,
+                                })
+                              }
+                              className="w-24 h-10 p-1 cursor-pointer"
+                              required
+                            />
+                            <span className="text-sm text-gray-600">
+                              {newFaction.borderColor}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <Label>Prévia</Label>
+                          <div
+                            className="mt-2 h-16 rounded-lg border-4"
+                            style={{
+                              backgroundColor: newFaction.bgColor,
+                              borderColor: newFaction.borderColor,
+                            }}
+                          />
+                        </div>
+                      </Card>
+                      <Button type="submit" className="w-full">
+                        Adicionar Facção
+                      </Button>
+                    </form>
+                  </div>
+                  <div className="mt-8">
+                    <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
+                    <form onSubmit={handleAddType} className="space-y-2">
                       <Input
-                        id="bgColor"
-                        type="color"
-                        value={newFaction.bgColor}
-                        onChange={(e) =>
-                          setNewFaction({
-                            ...newFaction,
-                            bgColor: e.target.value,
-                          })
-                        }
-                        className="w-24 h-10 p-1 cursor-pointer"
+                        type="text"
+                        placeholder="Nome do Tipo"
+                        value={newType}
+                        onChange={(e) => setNewType(e.target.value)}
                         required
                       />
-                      <span className="text-sm text-gray-600">
-                        {newFaction.bgColor}
-                      </span>
-                    </div>
+                      <Button type="submit" className="w-full">
+                        Adicionar Tipo
+                      </Button>
+                    </form>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="borderColor">Cor da Borda</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="borderColor"
-                        type="color"
-                        value={newFaction.borderColor}
-                        onChange={(e) =>
-                          setNewFaction({
-                            ...newFaction,
-                            borderColor: e.target.value,
-                          })
-                        }
-                        className="w-24 h-10 p-1 cursor-pointer"
-                        required
-                      />
-                      <span className="text-sm text-gray-600">
-                        {newFaction.borderColor}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label>Prévia</Label>
-                    <div
-                      className="mt-2 h-16 rounded-lg border-4"
-                      style={{
-                        backgroundColor: newFaction.bgColor,
-                        borderColor: newFaction.borderColor,
-                      }}
-                    />
-                  </div>
-                </Card>
-                <Button type="submit" className="w-full">
-                  Adicionar Facção
-                </Button>
-              </form>
-            </div>
-            <div className="mt-8">
-              <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
-              <form onSubmit={handleAddType} className="space-y-2">
-                <Input
-                  type="text"
-                  placeholder="Nome do Tipo"
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  required
-                />
-                <Button type="submit" className="w-full">
-                  Adicionar Tipo
-                </Button>
-              </form>
-            </div>
-          </aside>
+                </div>
+              </>
+            )}
+          </div>
         </ResizableLayout>
       </main>
       {deleteId && (
