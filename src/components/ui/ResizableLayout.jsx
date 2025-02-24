@@ -29,11 +29,11 @@ const ResizableLayout = ({
 
       if (isDragging.vertical || isDragging.corner) {
         const newVertical = ((e.clientX - left) / width) * 100;
-        onVerticalDividerChange(Math.min(Math.max(newVertical, 20), 80));
+        onVerticalDividerChange(Math.min(Math.max(newVertical, 2), 98));
       }
       if (isDragging.horizontal || isDragging.corner) {
         const newHorizontal = ((e.clientY - top) / height) * 100;
-        onHorizontalDividerChange(Math.min(Math.max(newHorizontal, 20), 80));
+        onHorizontalDividerChange(Math.min(Math.max(newHorizontal, 2), 97));
       }
     };
 
