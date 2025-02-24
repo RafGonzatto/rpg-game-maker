@@ -230,7 +230,6 @@ export default function QuestNodesView({
   types,
   setTypes, // adicionado
 }) {
-  // Estados já existentes
   const headerRef = useRef(null);
   const hasMovedRef = useRef(false);
   const wallRef = useRef(null);
@@ -360,6 +359,9 @@ export default function QuestNodesView({
       setPan({ x: rect.width / 2 - CARD_WIDTH / 2, y: 50 });
     }
   };
+  useEffect(() => {
+    handleReset();
+  }, []);
   const handleWheel = (e) => {
     e.preventDefault();
     const newZoom = Math.max(
