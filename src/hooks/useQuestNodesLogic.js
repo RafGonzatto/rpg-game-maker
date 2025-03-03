@@ -100,7 +100,15 @@ export default function useQuestNodesLogic({
   }
 
   const handlePanStart = (e) => {
-    // Set panning to true
+    // Verifica se o clique foi em um elemento interativo
+    const isInteractiveElement =
+      e.target.closest("form") ||
+      e.target.tagName === "INPUT" ||
+      e.target.tagName === "SELECT" ||
+      e.target.tagName === "TEXTAREA";
+
+    if (isInteractiveElement) return; // 👈 Não inicia panning
+
     setIsPanning(true);
     setPan({
       ...pan,

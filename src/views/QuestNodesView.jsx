@@ -1,3 +1,4 @@
+///////////QuestNodesView.jsx
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { QuestNode } from "./QuestNode";
@@ -153,12 +154,24 @@ export default function QuestNodesView({
   };
 
   useEffect(() => {
-    const handleMouseUp = () => {
-      handlePanEnd();
+    let startPos = null;
+    const onMouseDown = (e) => (startPos = { x: e.clientX, y: e.clientY });
+    const onMouseUp = (e) => {
+      if (
+        startPos &&
+        Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y) < 5
+      )
+        setConnecting(null);
+      startPos = null;
     };
-    document.addEventListener("mouseup", handleMouseUp);
+    const onKeyUp = (e) => e.key === "Escape" && setConnecting(null);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      document.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("keyup", onKeyUp);
     };
   }, []);
 
@@ -342,7 +355,7 @@ export default function QuestNodesView({
   );
 
   return (
-    <div className="h-screen flex flex-col bg-yellow-800">
+    <div className="h-screen flex flex-col bg-yellow-800 overflow-hidden ">
       <header
         ref={headerRef}
         className="relative bg-rose-600 h-[20vh] grid grid-cols-4"
@@ -528,7 +541,7 @@ export default function QuestNodesView({
             </div>
             {!detailsContainer && !minimized.details && <DetailsContent />}
           </div>
-          <div className="h-full">
+          <div className="h-full z-50">
             {minimized.form ? (
               <div className="flex items-center justify-center z-70 h-full">
                 <Button onClick={() => toggleSection("form")}>

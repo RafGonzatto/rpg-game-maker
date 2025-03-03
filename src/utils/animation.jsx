@@ -136,40 +136,34 @@ export function BeerAnimated({
       setBeers((prev) => {
         if (prev.length >= maxBeers) return prev;
         const images = [beer1, beer2, beer3];
-
         const newBeer = {
           id: Date.now() + Math.random(),
           right: Math.random() * 150 - 120,
-          img: images[Math.floor(Math.random() * images.length)], // Escolhe uma imagem aleatória corretamente
+          img: images[Math.floor(Math.random() * images.length)],
           ref: React.createRef(),
           active: false,
         };
-        // Ativa a cerveja após 10ms
         setTimeout(() => {
           setBeers((prev) =>
             prev.map((b) => (b.id === newBeer.id ? { ...b, active: true } : b))
           );
         }, 10);
-
-        // Desativa a cerveja e remove após "duration"
         setTimeout(() => {
           setBeers((prev) =>
             prev.map((b) => (b.id === newBeer.id ? { ...b, active: false } : b))
           );
           setTimeout(() => {
             setBeers((p) => p.filter((b) => b.id !== newBeer.id));
-          }, 500); // Tempo da transição
-        }, duration - 500); // Ajuste para compensar a transição
-
+          }, 500);
+        }, duration - 500);
         return [...prev, newBeer];
       });
     }, spawnInterval);
-
     return () => clearInterval(intervalId);
   }, [maxBeers, spawnInterval, duration]);
 
   return (
-    <div ref={containerRef} className="relative top-[50%] w-full h-[40%] ">
+    <div ref={containerRef} className="relative top-[51%] w-full h-[40%]">
       {beers.map((b) => (
         <div
           key={b.id}

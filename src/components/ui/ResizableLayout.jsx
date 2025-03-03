@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+///////////ResizableLayout.jsx
+import React, { useEffect, useRef } from "react";
 
 const COLORS = {
   divider: "bg-red-500",
@@ -14,38 +15,47 @@ const ResizableLayout = ({
   onVerticalDividerChange,
   onHorizontalDividerChange,
 }) => {
-  const [isDragging, setIsDragging] = useState({
+  const draggingRef = useRef({
     vertical: false,
     horizontal: false,
     corner: false,
   });
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      const container = document.getElementById("main-container");
-      if (!container) return;
-      const { left, top, width, height } = container.getBoundingClientRect();
+    const container = containerRef.current;
+    if (!container) return;
 
-      if (isDragging.vertical || isDragging.corner) {
+    const handlePointerMove = (e) => {
+      const { left, top, width, height } = container.getBoundingClientRect();
+      if (draggingRef.current.vertical || draggingRef.current.corner) {
         const newVertical = ((e.clientX - left) / width) * 100;
         onVerticalDividerChange(Math.min(Math.max(newVertical, 2), 98));
       }
-      if (isDragging.horizontal || isDragging.corner) {
+      if (draggingRef.current.horizontal || draggingRef.current.corner) {
         const newHorizontal = ((e.clientY - top) / height) * 100;
-        onHorizontalDividerChange(Math.min(Math.max(newHorizontal, 2), 97));
+        onHorizontalDividerChange(Math.min(Math.max(newHorizontal, 2), 98));
       }
     };
 
-    const handleMouseUp = () =>
-      setIsDragging({ vertical: false, horizontal: false, corner: false });
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+    const handlePointerUp = (e) => {
+      draggingRef.current = {
+        vertical: false,
+        horizontal: false,
+        corner: false,
+      };
+      container.releasePointerCapture(e.pointerId);
     };
-  }, [isDragging, onVerticalDividerChange, onHorizontalDividerChange]);
+
+    container.addEventListener("pointermove", handlePointerMove);
+    container.addEventListener("pointerup", handlePointerUp);
+    container.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      container.removeEventListener("pointermove", handlePointerMove);
+      container.removeEventListener("pointerup", handlePointerUp);
+      container.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [onVerticalDividerChange, onHorizontalDividerChange]);
 
   const cornerSize = 15;
   const cornerStyle = {
@@ -59,10 +69,15 @@ const ResizableLayout = ({
     zIndex: 20,
   };
 
+  const onPointerDownHandler = (type, e) => {
+    draggingRef.current[type] = true;
+    containerRef.current?.setPointerCapture(e.pointerId);
+  };
+
   return (
     <div
-      id="main-container"
-      className="flex-1 grid gap-4 p-4 overflow-hidden"
+      ref={containerRef}
+      className="flex-1 grid gap-4 p-4 overflow-hidden select-none"
       style={{
         height: "100%",
         gridTemplateColumns: `${verticalDividerPosition}% ${
@@ -73,7 +88,7 @@ const ResizableLayout = ({
     >
       <div
         style={cornerStyle}
-        onMouseDown={() => setIsDragging((prev) => ({ ...prev, corner: true }))}
+        onPointerDown={(e) => onPointerDownHandler("corner", e)}
         className="group"
       >
         <div
@@ -94,7 +109,7 @@ const ResizableLayout = ({
         </div>
         <div
           className={`absolute w-full h-3 cursor-row-resize rounded group transition-colors ${
-            isDragging.horizontal || isDragging.corner
+            draggingRef.current.horizontal || draggingRef.current.corner
               ? COLORS.divider
               : `bg-transparent ${COLORS.dividerHover}`
           }`}
@@ -102,9 +117,7 @@ const ResizableLayout = ({
             top: `${horizontalDividerPosition}%`,
             transform: "translateY(-50%)",
           }}
-          onMouseDown={() =>
-            setIsDragging((prev) => ({ ...prev, horizontal: true }))
-          }
+          onPointerDown={(e) => onPointerDownHandler("horizontal", e)}
         >
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 rounded group-hover:opacity-100 transition-opacity" />
         </div>
@@ -118,7 +131,7 @@ const ResizableLayout = ({
 
       <div
         className={`absolute h-full w-3 cursor-col-resize rounded group transition-colors ${
-          isDragging.vertical || isDragging.corner
+          draggingRef.current.vertical || draggingRef.current.corner
             ? COLORS.divider
             : `bg-transparent ${COLORS.dividerHover}`
         }`}
@@ -126,26 +139,19 @@ const ResizableLayout = ({
           left: `${verticalDividerPosition}%`,
           transform: "translateX(-50%)",
         }}
-        onMouseDown={() =>
-          setIsDragging((prev) => ({ ...prev, vertical: true }))
-        }
+        onPointerDown={(e) => onPointerDownHandler("vertical", e)}
       >
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-6 rounded group-hover:opacity-100 transition-opacity" />
       </div>
 
       <aside
         className={`${COLORS.containerBg} rounded-lg shadow-lg p-4 overflow-auto`}
-        style={{ gridColumn: "2 / 3", height: "100%" }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onMouseMove={(e) => e.stopPropagation()}
+        style={{ gridColumn: "2 / 3", height: "100%", zIndex: 30 }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
       >
         {children[2]}
       </aside>
-
-      <div
-        style={cornerStyle}
-        onMouseDown={() => setIsDragging((prev) => ({ ...prev, corner: true }))}
-      />
     </div>
   );
 };
