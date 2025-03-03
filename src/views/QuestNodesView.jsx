@@ -1,5 +1,4 @@
-// QuestNodesView.jsx
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { QuestNode } from "./QuestNode";
 import { Button } from "../components/ui/Button";
@@ -18,16 +17,24 @@ import {
 } from "lucide-react";
 import { Card } from "../components/ui/Card";
 import NewQuestForm from "./NewQuestForm";
+import useQuestNodesLogic from "../hooks/useQuestNodesLogic";
 
-export default function QuestNodesView(props) {
+export default function QuestNodesView({
+  missions,
+  setMissions,
+  factions,
+  setFactions,
+  types,
+  setTypes,
+  selectedQuest,
+  setSelectedQuest,
+}) {
   const {
     wallRight,
     filter,
     setFilter,
     onExport,
     onImport,
-    missions,
-    selectedQuest,
     positions,
     connections,
     pan,
@@ -35,6 +42,7 @@ export default function QuestNodesView(props) {
     filtered,
     handlePanStart,
     handlePanMove,
+    handlePanEnd,
     handleReset,
     handleZoomIn,
     handleZoomOut,
@@ -51,136 +59,109 @@ export default function QuestNodesView(props) {
     svgRef,
     wallRef,
     headerRef,
+    openDetailsInNewWindow,
+    openFormInNewWindow,
+    detailsContainer,
+    formContainer,
+    deleteId,
+    setDeleteId,
+    handleDeleteConfirm,
     newFaction,
     setNewFaction,
     handleAddFaction,
     newType,
     setNewType,
-    hasMovedRef,
     handleAddType,
+    factionSvgColors,
     connecting,
     setConnecting,
     onStartConnect,
-    onRequestDelete,
-    deleteId,
-    setDeleteId,
-    handleDeleteConfirm,
-    onAddQuest,
+  } = useQuestNodesLogic({
+    missions,
+    setMissions,
     factions,
+    setFactions,
     types,
-    factionSvgColors,
-  } = props;
+    setTypes,
+    selectedQuest,
+    setSelectedQuest,
+  });
 
-  // ————————————————————————
-  // ESTADOS PARA DETALHES
-  const [detailsWindow, setDetailsWindow] = useState(null);
-  const [detailsContainer, setDetailsContainer] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [formState, setFormState] = useState({
+    id: "",
+    title: "",
+    faction: "",
+    type: "",
+    dialogo: "",
+    requires: [],
+    unlocks: [],
+    reputation: {},
+  });
 
-  // ESTADOS PARA FORM
-  const [formWindow, setFormWindow] = useState(null);
-  const [formContainer, setFormContainer] = useState(null);
-  // ————————————————————————
+  const isEditing = () =>
+    document.activeElement && document.activeElement.closest("form");
 
-  // ————————————————————————
-  // LIMPEZA QUANDO JANELA FECHA
+  const isFormElement = (element) =>
+    element.tagName === "INPUT" ||
+    element.tagName === "SELECT" ||
+    element.tagName === "TEXTAREA" ||
+    element.closest("form") !== null;
+
+  const handleSectionMouseDown = (e) => {
+    if (isFormElement(e.target)) return;
+    handlePanStart(e);
+  };
+
   useEffect(() => {
-    if (!detailsWindow) return;
-    const handleUnload = () => {
-      setDetailsWindow(null);
-      setDetailsContainer(null);
+    const handleGlobalMouseUp = () => {
+      if (handlePanEnd) handlePanEnd();
     };
-    detailsWindow.addEventListener("beforeunload", handleUnload);
-    return () =>
-      detailsWindow.removeEventListener("beforeunload", handleUnload);
-  }, [detailsWindow]);
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [handlePanEnd]);
 
   useEffect(() => {
-    if (!formWindow) return;
-    const handleUnload = () => {
-      setFormWindow(null);
-      setFormContainer(null);
+    const handleFocus = (e) => {
+      if (
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "SELECT" ||
+        e.target.tagName === "TEXTAREA"
+      )
+        setIsTyping(true);
     };
-    formWindow.addEventListener("beforeunload", handleUnload);
-    return () => formWindow.removeEventListener("beforeunload", handleUnload);
-  }, [formWindow]);
-  // ————————————————————————
-
-  // ————————————————————————
-  // AÇÕES QUE ABREM CADA JANELA
-  function openDetailsInNewWindow() {
-    if (detailsWindow) return;
-    const newWin = window.open("", "_blank", "width=600,height=400");
-
-    // Copia CSS
-    const styleSheets = document.querySelectorAll(
-      "link[rel='stylesheet'], style"
-    );
-    styleSheets.forEach((sheet) => {
-      newWin.document.head.appendChild(sheet.cloneNode(true));
-    });
-
-    // Continua...
-    const container = newWin.document.createElement("div");
-    newWin.document.body.appendChild(container);
-    setDetailsWindow(newWin);
-    setDetailsContainer(container);
-    toggleSection("details");
-    newWin.onbeforeunload = () => {
-      setDetailsWindow(null);
-      setDetailsContainer(null);
+    const handleBlur = () => setIsTyping(false);
+    document.addEventListener("focus", handleFocus, true);
+    document.addEventListener("blur", handleBlur, true);
+    return () => {
+      document.removeEventListener("focus", handleFocus, true);
+      document.removeEventListener("blur", handleBlur, true);
     };
-  }
+  }, []);
 
-  function openFormInNewWindow() {
-    if (formWindow) return;
-    const newWin = window.open("", "_blank", "width=600,height=500");
+  const handleSectionClick = (e) => {
+    if (isFormElement(e.target)) return;
+    if (!connecting) setConnecting(null);
+  };
 
-    // Clonar estilos do HEAD
-    const styleSheets = document.querySelectorAll(
-      "link[rel='stylesheet'], style"
-    );
-    styleSheets.forEach((sheet) => {
-      newWin.document.head.appendChild(sheet.cloneNode(true));
-    });
+  const handleSectionMouseMove = (e) => {
+    if (!isFormElement(e.target)) {
+      handlePanMove(e);
+    }
+  };
 
-    // Criar div para portal
-    const container = newWin.document.createElement("div");
-    newWin.document.body.appendChild(container);
-
-    setFormWindow(newWin);
-    setFormContainer(container);
-    toggleSection("form"); // Minimiza no principal
-  }
-  // ————————————————————————
   useEffect(() => {
-    if (!detailsWindow) return;
-    const handleUnload = () => {
-      setDetailsWindow(null);
-      setDetailsContainer(null);
-      // Ao fechar, força maximizar a sessão se estiver minimizada
-      if (minimized.details) {
-        toggleSection("details");
-      }
+    const handleMouseUp = () => {
+      handlePanEnd();
     };
-    detailsWindow.addEventListener("beforeunload", handleUnload);
-    return () =>
-      detailsWindow.removeEventListener("beforeunload", handleUnload);
-  }, [detailsWindow, minimized.details]);
-  useEffect(() => {
-    if (!formWindow) return;
-    const handleUnload = () => {
-      setFormWindow(null);
-      setFormContainer(null);
-      if (minimized.form) {
-        toggleSection("form");
-      }
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mouseup", handleMouseUp);
     };
-    formWindow.addEventListener("beforeunload", handleUnload);
-    return () => formWindow.removeEventListener("beforeunload", handleUnload);
-  }, [formWindow, minimized.form]);
+  }, []);
 
-  // ————————————————————————
-  // COMPONENTE DE DETALHES
   const DetailsContent = () => {
     if (!selectedQuest) return null;
     const quest = missions[selectedQuest];
@@ -208,7 +189,6 @@ export default function QuestNodesView(props) {
             </span>
           </div>
         </div>
-
         <div className="mt-4">
           <p className="font-semibold text-gray-700 mb-2">Requer</p>
           <div className="bg-gray-50 p-3 rounded">
@@ -226,7 +206,6 @@ export default function QuestNodesView(props) {
             )}
           </div>
         </div>
-
         <div className="mt-4">
           <p className="font-semibold text-gray-700 mb-2">Desbloqueia</p>
           <div className="bg-gray-50 p-3 rounded">
@@ -247,7 +226,6 @@ export default function QuestNodesView(props) {
             )}
           </div>
         </div>
-
         {quest.dialogo && (
           <div className="mt-4">
             <p className="font-semibold text-gray-700 mb-2">Diálogo</p>
@@ -256,7 +234,6 @@ export default function QuestNodesView(props) {
             </div>
           </div>
         )}
-
         {quest.reputation && (
           <div className="mt-4">
             <p className="font-semibold text-gray-700 mb-2">Reputação</p>
@@ -271,7 +248,7 @@ export default function QuestNodesView(props) {
                     <span
                       className={val > 0 ? "text-green-500" : "text-red-500"}
                     >
-                      {val > 0 ? `+${val}` : val}
+                      {val > 0 ? `${val}` : val}
                     </span>
                   </li>
                 ))}
@@ -282,90 +259,70 @@ export default function QuestNodesView(props) {
       </Card>
     );
   };
-  // ————————————————————————
 
-  // ————————————————————————
-  // COMPONENTE DO FORM
   const FormContent = () => (
-    <div className="p-4 overflow-auto h-full">
+    <>
       <NewQuestForm
-        onSave={onAddQuest}
+        onSave={onExport}
         missions={missions}
         factions={factions}
         types={types}
+        formState={formState}
+        setFormState={setFormState}
       />
-      <div className="mt-8 max-w-md">
-        <h2 className="text-lg font-bold mb-4">Gerenciar Facções</h2>
-        <form onSubmit={handleAddFaction} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="factionName">Nome da Facção</Label>
-            <Input
-              id="factionName"
-              type="text"
-              placeholder="Digite o nome da facção"
-              value={newFaction.name}
-              onChange={(e) =>
-                setNewFaction({ ...newFaction, name: e.target.value })
-              }
-              required
-            />
-          </div>
-          <div className="p-4 space-y-4 border rounded">
-            <div className="space-y-2">
-              <Label htmlFor="bgColor">Cor de Fundo</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="bgColor"
-                  type="color"
-                  value={newFaction.bgColor}
-                  onChange={(e) =>
-                    setNewFaction({ ...newFaction, bgColor: e.target.value })
-                  }
-                  className="w-24 h-10 p-1 cursor-pointer"
-                  required
-                />
-                <span className="text-sm text-gray-600">
-                  {newFaction.bgColor}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="borderColor">Cor da Borda</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="borderColor"
-                  type="color"
-                  value={newFaction.borderColor}
-                  onChange={(e) =>
-                    setNewFaction({
-                      ...newFaction,
-                      borderColor: e.target.value,
-                    })
-                  }
-                  className="w-24 h-10 p-1 cursor-pointer"
-                  required
-                />
-                <span className="text-sm text-gray-600">
-                  {newFaction.borderColor}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <Label>Prévia</Label>
-              <div
-                className="mt-2 h-16 rounded-lg border-4"
-                style={{
-                  backgroundColor: newFaction.bgColor,
-                  borderColor: newFaction.borderColor,
-                }}
-              />
-            </div>
-          </div>
-          <Button type="submit" className="w-full">
-            Adicionar Facção
-          </Button>
-        </form>
-      </div>
+      <h2 className="text-lg flex-col-2 font-bold mb-4">Gerenciar Facções</h2>
+      <form onSubmit={handleAddFaction} className="space-y-4">
+        <Label htmlFor="factionName">Nome da Facção</Label>
+        <Input
+          id="factionName"
+          type="text"
+          placeholder="Digite o nome da facção"
+          value={newFaction.name}
+          onChange={(e) =>
+            setNewFaction({ ...newFaction, name: e.target.value })
+          }
+          required
+        />
+        <Label htmlFor="bgColor">Cor de Fundo</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="bgColor"
+            type="color"
+            value={newFaction.bgColor}
+            onChange={(e) =>
+              setNewFaction({ ...newFaction, bgColor: e.target.value })
+            }
+            className="w-24 h-10 p-1 cursor-pointer"
+            required
+          />
+          <span className="text-sm text-gray-600">{newFaction.bgColor}</span>
+        </div>
+        <Label htmlFor="borderColor">Cor da Borda</Label>
+        <Input
+          id="borderColor"
+          type="color"
+          value={newFaction.borderColor}
+          onChange={(e) =>
+            setNewFaction({ ...newFaction, borderColor: e.target.value })
+          }
+          className="w-24 h-10 p-1 cursor-pointer"
+          required
+        />
+        <span className="text-sm text-gray-600">{newFaction.borderColor}</span>
+        <div className="mt-4">
+          <Label>Prévia</Label>
+          <div
+            className="mt-2 h-16 rounded-lg border-4"
+            style={{
+              backgroundColor: newFaction.bgColor,
+              borderColor: newFaction.borderColor,
+            }}
+          />
+        </div>
+        <Button type="submit" className="w-full">
+          Adicionar Facção
+        </Button>
+      </form>
       <div className="mt-8">
         <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
         <form onSubmit={handleAddType} className="space-y-2">
@@ -381,12 +338,11 @@ export default function QuestNodesView(props) {
           </Button>
         </form>
       </div>
-    </div>
+    </>
   );
-  // ————————————————————————
 
   return (
-    <div className="h-screen flex flex-col select-none bg-yellow-800">
+    <div className="h-screen flex flex-col bg-yellow-800">
       <header
         ref={headerRef}
         className="relative bg-rose-600 h-[20vh] grid grid-cols-4"
@@ -407,7 +363,7 @@ export default function QuestNodesView(props) {
         <BeerAnimated />
         <div
           ref={wallRef}
-          className="z-[5] absolute left-[15%] top-0 w-full h-[90%] pointer-events-none"
+          className="z-[5] absolute left-[15%] top-0 w-full h-[90%]"
         >
           <div
             className="w-full h-full"
@@ -420,9 +376,9 @@ export default function QuestNodesView(props) {
           />
         </div>
         <div className="bg-[url('/sprites/sprite2.png')] bg-cover animate-sprite" />
-        <div className="flex flex-col justify-center p-4">
+        <div className="flex flex-col z-50 justify-center p-4">
           <h1
-            className="z-[40] text-2xl font-bold text-white pointer-events-none"
+            className="z-[40] text-2xl font-bold text-white"
             style={{ position: "absolute", left: wallRight + 10, top: 0 }}
           >
             Missões
@@ -457,7 +413,6 @@ export default function QuestNodesView(props) {
           </div>
         </div>
       </header>
-
       <main className="flex-1 p-4 overflow-hidden">
         <ResizableLayout
           verticalDividerPosition={verticalDividerPosition}
@@ -465,25 +420,19 @@ export default function QuestNodesView(props) {
           onVerticalDividerChange={setVerticalDividerPosition}
           onHorizontalDividerChange={setHorizontalDividerPosition}
         >
-          {/* MAPA DE NÓS */}
           <section
             ref={sectionRef}
             className="relative bg-white rounded-lg overflow-visible"
-            onMouseDown={handlePanStart}
-            onMouseMove={handlePanMove}
-            onClick={() => {
-              if (!hasMovedRef.current && connecting) setConnecting(null);
-            }}
+            onMouseDown={handleSectionMouseDown}
+            onMouseMove={handleSectionMouseMove}
+            onClick={handleSectionClick}
             style={{ height: "calc(100vh - 180px)" }}
           >
             <div
               ref={containerRef}
-              className="bg-yellow-50 relative h-full w-full overflow-hidden select-none"
+              className="bg-yellow-50 relative h-full w-full overflow-hidden"
             >
-              <svg
-                ref={svgRef}
-                className="absolute top-0 left-0 w-full h-full pointer-events-none"
-              >
+              <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full">
                 <defs>
                   <marker
                     id="arrowhead"
@@ -496,16 +445,22 @@ export default function QuestNodesView(props) {
                     <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
                   </marker>
                 </defs>
-                {connections.map((conn) => (
-                  <path
-                    key={conn.id}
-                    d={conn.path}
-                    stroke={conn.color}
-                    strokeWidth={selectedQuest === conn.from ? 3 : 2}
-                    fill="none"
-                    markerEnd="url(#arrowhead)"
-                  />
-                ))}
+                {connections.map((conn) => {
+                  const parent = missions[conn.from];
+                  const color = parent
+                    ? factionSvgColors[parent.faction]
+                    : "#000";
+                  return (
+                    <path
+                      key={conn.id}
+                      d={conn.path}
+                      stroke={color}
+                      strokeWidth={selectedQuest === conn.from ? 3 : 2}
+                      fill="none"
+                      markerEnd="url(#arrowhead)"
+                    />
+                  );
+                })}
                 {buildTempConnection && (
                   <path
                     d={buildTempConnection()}
@@ -549,17 +504,15 @@ export default function QuestNodesView(props) {
                       pos={positions[id]}
                       selected={selectedQuest === id}
                       factionConfig={factionConfig}
-                      onClick={(questId) => handleQuestClick(questId)}
-                      onStartConnect={(questId) => onStartConnect(questId)}
-                      onRequestDelete={(questId) => onRequestDelete(questId)}
+                      onClick={handleQuestClick}
+                      onStartConnect={onStartConnect}
+                      onRequestDelete={setDeleteId}
                     />
                   );
                 })}
               </div>
             </div>
           </section>
-
-          {/* PAINEL DE DETALHES */}
           <div className="p-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Detalhes da Missão</h3>
@@ -573,32 +526,34 @@ export default function QuestNodesView(props) {
                 {minimized.details ? <Maximize2 /> : <Minimize2 />}
               </Button>
             </div>
-            {/* Exibe detalhes APENAS se não tem popup e não está minimizado */}
             {!detailsContainer && !minimized.details && <DetailsContent />}
           </div>
-
-          {/* PAINEL DE FORM */}
           <div className="h-full">
             {minimized.form ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center z-70 h-full">
                 <Button onClick={() => toggleSection("form")}>
                   <ChevronRight size={24} />
                 </Button>
               </div>
             ) : (
               <>
-                <div className="flex justify-between items-center p-4 border-b">
-                  <h2 className="text-lg font-bold">Nova Missão</h2>
-                  <Button onClick={openFormInNewWindow}>
+                <div className="flex p-4 border-b">
+                  <h2 className="text-lg font-bold">Nova card</h2>
+                  <Button
+                    className="absolute right-24"
+                    onClick={openFormInNewWindow}
+                  >
                     Abrir em Outra Janela
                   </Button>
-                  <Button onClick={() => toggleSection("form")}>
+                  <Button
+                    className="absolute right-5"
+                    onClick={() => toggleSection("form")}
+                  >
                     <Minimize2 size={16} />
                   </Button>
                 </div>
-                {/* Se não tem popup e não está minimizado, renderiza aqui */}
                 {!formContainer && (
-                  <div className="p-4 overflow-auto h-[calc(100%-56px)]">
+                  <div className="p-4 overflow-auto h-[calc(100% - 56px)]">
                     <FormContent />
                   </div>
                 )}
@@ -607,13 +562,9 @@ export default function QuestNodesView(props) {
           </div>
         </ResizableLayout>
       </main>
-
-      {/* Se a popup estiver aberta, mantém o conteúdo lá independentemente de minimizado */}
       {detailsContainer &&
         ReactDOM.createPortal(<DetailsContent />, detailsContainer)}
       {formContainer && ReactDOM.createPortal(<FormContent />, formContainer)}
-
-      {/* MODAL DE EXCLUIR */}
       {deleteId && (
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full">

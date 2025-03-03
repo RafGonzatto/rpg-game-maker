@@ -48,7 +48,7 @@ export function AnimatedSprite({ interval = 150 }) {
   const img = preparedLoops[currentLoop][frame];
   return (
     <div
-      className="z-[15] absolute left-[2%] bottom-[-1.5%] w-full h-full pointer-events-none"
+      className="z-[15] absolute left-[2%] bottom-[-1.5%] w-full h-full"
       style={{
         backgroundImage: `url(${img.src})`,
         imageRendering: "pixelated",
@@ -94,7 +94,7 @@ function Particles({
   }, [isActive, beerRef, particleAnimationDuration]);
 
   return (
-    <div className="absolute inset-0 top-3 pointer-events-none">
+    <div className="absolute inset-0 top-3 ">
       {parts.map((p) => (
         <div
           key={p.id}
@@ -169,10 +169,7 @@ export function BeerAnimated({
   }, [maxBeers, spawnInterval, duration]);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative top-[50%] w-full h-[40%] pointer-events-none"
-    >
+    <div ref={containerRef} className="relative top-[50%] w-full h-[40%] ">
       {beers.map((b) => (
         <div
           key={b.id}

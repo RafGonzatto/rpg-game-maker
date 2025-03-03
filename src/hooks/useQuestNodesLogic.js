@@ -26,7 +26,13 @@ export default function useQuestNodesLogic({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [deleteId, setDeleteId] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({
+    x: 0,
+    y: 0,
+    startX: 0,
+    startY: 0,
+    active: false,
+  });
   const [filter, setFilter] = useState("");
   const [isPanning, setIsPanning] = useState(false);
   const [verticalDividerPosition, setVerticalDividerPosition] = useState(70);
@@ -37,6 +43,11 @@ export default function useQuestNodesLogic({
     vertical: 70,
     horizontal: 60,
   });
+
+  const [detailsWindow, setDetailsWindow] = useState(null);
+  const [detailsContainer, setDetailsContainer] = useState(null);
+  const [formWindow, setFormWindow] = useState(null);
+  const [formContainer, setFormContainer] = useState(null);
 
   function onStartConnect(questId) {
     setConnecting(questId);
@@ -61,25 +72,20 @@ export default function useQuestNodesLogic({
     filter,
     factions.reduce((acc, f) => ({ ...acc, [f.name]: f.bgColor }), {})
   );
+
   function toggleSection(section) {
-    debugger;
     if (section === "details") {
-      // Minimiza/restaura via divisor horizontal
       if (minimized.details) {
-        // Estava minimizado, então restaura
         setHorizontalDividerPosition(previousPositions.horizontal);
       } else {
-        // Não estava minimizado, então salva posição atual e joga para 98
         setPreviousPositions((prev) => ({
           ...prev,
           horizontal: horizontalDividerPosition,
         }));
         setHorizontalDividerPosition(95);
       }
-      // Marca o form invertendo o estado
       setMinimized((prev) => ({ ...prev, details: !prev.details }));
     } else if (section === "form") {
-      // Minimiza/restaura via divisor vertical
       if (minimized.form) {
         setVerticalDividerPosition(previousPositions.vertical);
       } else {
@@ -94,19 +100,23 @@ export default function useQuestNodesLogic({
   }
 
   const handlePanStart = (e) => {
-    if (e.button !== 0) return;
+    // Set panning to true
     setIsPanning(true);
-    startRef.current = { x: e.clientX, y: e.clientY };
-    hasMovedRef.current = false;
+    setPan({
+      ...pan,
+      startX: e.clientX - pan.x,
+      startY: e.clientY - pan.y,
+    });
   };
 
   const handlePanMove = (e) => {
     if (!isPanning) return;
-    const dx = e.clientX - startRef.current.x;
-    const dy = e.clientY - startRef.current.y;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMovedRef.current = true;
-    setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-    startRef.current = { x: e.clientX, y: e.clientY };
+
+    setPan({
+      ...pan,
+      x: e.clientX - pan.startX,
+      y: e.clientY - pan.startY,
+    });
   };
 
   const handleReset = () => {
@@ -132,16 +142,11 @@ export default function useQuestNodesLogic({
   useEffect(() => {
     handleReset();
   }, []);
-
   useEffect(() => {
     const isDetailsMinimized = horizontalDividerPosition > 90;
     const isFormMinimized = verticalDividerPosition > 93;
-    setMinimized({
-      details: isDetailsMinimized,
-      form: isFormMinimized,
-    });
+    setMinimized({ details: isDetailsMinimized, form: isFormMinimized });
   }, [verticalDividerPosition, horizontalDividerPosition]);
-
   useEffect(() => {
     const measure = () => {
       if (headerRef.current && wallRef.current) {
@@ -162,7 +167,6 @@ export default function useQuestNodesLogic({
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, []);
-
   useEffect(() => {
     const handleMouseMove = (e) => setMousePos({ x: e.clientX, y: e.clientY });
     window.addEventListener("mousemove", handleMouseMove);
@@ -172,7 +176,6 @@ export default function useQuestNodesLogic({
       window.removeEventListener("mouseup", () => setIsPanning(false));
     };
   }, []);
-
   useEffect(() => {
     sectionRef.current?.addEventListener("wheel", handleWheel, {
       passive: false,
@@ -214,7 +217,9 @@ export default function useQuestNodesLogic({
       setSelectedQuest(id);
     }
   };
-
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
   const handleDeleteConfirm = () => {
     const newM = { ...missions };
     Object.values(newM).forEach((q) => {
@@ -250,13 +255,68 @@ export default function useQuestNodesLogic({
     }
   };
 
+  const openDetailsInNewWindow = () => {
+    if (detailsWindow) return;
+    const newWin = window.open("", "_blank", "width=600,height=400");
+    document
+      .querySelectorAll("link[rel='stylesheet'], style")
+      .forEach((sheet) => {
+        newWin.document.head.appendChild(sheet.cloneNode(true));
+      });
+    const container = newWin.document.createElement("div");
+    newWin.document.body.appendChild(container);
+    setDetailsWindow(newWin);
+    setDetailsContainer(container);
+    toggleSection("details");
+    newWin.onbeforeunload = () => {
+      setDetailsWindow(null);
+      setDetailsContainer(null);
+    };
+  };
+  useEffect(() => {
+    if (!detailsWindow) return;
+    const handleUnload = () => {
+      setDetailsWindow(null);
+      setDetailsContainer(null);
+      // Ao fechar, força maximizar a sessão se estiver minimizada
+      if (minimized.details) {
+        toggleSection("details");
+      }
+    };
+    detailsWindow.addEventListener("beforeunload", handleUnload);
+    return () =>
+      detailsWindow.removeEventListener("beforeunload", handleUnload);
+  }, [detailsWindow, minimized.details]);
+  useEffect(() => {
+    if (!formWindow) return;
+    const handleUnload = () => {
+      setFormWindow(null);
+      setFormContainer(null);
+      if (minimized.form) {
+        toggleSection("form");
+      }
+    };
+    formWindow.addEventListener("beforeunload", handleUnload);
+    return () => formWindow.removeEventListener("beforeunload", handleUnload);
+  }, [formWindow, minimized.form]);
+
+  const openFormInNewWindow = () => {
+    if (formWindow) return;
+    const newWin = window.open("", "_blank", "width=600,height=500");
+    document
+      .querySelectorAll("link[rel='stylesheet'], style")
+      .forEach((sheet) => {
+        newWin.document.head.appendChild(sheet.cloneNode(true));
+      });
+    const container = newWin.document.createElement("div");
+    newWin.document.body.appendChild(container);
+    setFormWindow(newWin);
+    setFormContainer(container);
+    toggleSection("form");
+  };
+
   return {
     wallRight,
-    containerRef,
-    sectionRef,
-    svgRef,
-    wallRef,
-    headerRef,
     filter,
     setFilter,
     onExport: () => {},
@@ -283,10 +343,17 @@ export default function useQuestNodesLogic({
     horizontalDividerPosition,
     setVerticalDividerPosition,
     setHorizontalDividerPosition,
-    mousePos,
+    containerRef,
+    sectionRef,
+    svgRef,
+    wallRef,
+    headerRef,
+    openDetailsInNewWindow,
+    openFormInNewWindow,
+    detailsContainer,
+    formContainer,
+    deleteId,
     setDeleteId,
-    connecting,
-    setConnecting,
     newFaction,
     setNewFaction,
     handleAddFaction,
@@ -294,6 +361,10 @@ export default function useQuestNodesLogic({
     setNewType,
     handleAddType,
     factionSvgColors,
+    connecting,
+    setConnecting,
+    handlePanEnd,
     onStartConnect,
+    isPanning,
   };
 }

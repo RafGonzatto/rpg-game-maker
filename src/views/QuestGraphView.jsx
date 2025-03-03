@@ -412,7 +412,7 @@ export default function QuestGraphView({
             </animated.g>
           </animated.svg>
         </div>
-        <div className="p-4 overflow-auto no-selection">
+        <div className="p-4 overflow-auto">
           {selectedQuest ? (
             <QuestDetails questId={selectedQuest} />
           ) : (

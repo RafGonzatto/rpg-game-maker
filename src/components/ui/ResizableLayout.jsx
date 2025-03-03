@@ -1,4 +1,3 @@
-//////ResizableLayout.jsx
 import React, { useState, useEffect } from "react";
 
 const COLORS = {
@@ -74,7 +73,7 @@ const ResizableLayout = ({
     >
       <div
         style={cornerStyle}
-        onMouseDown={() => setIsDragging({ ...isDragging, corner: true })}
+        onMouseDown={() => setIsDragging((prev) => ({ ...prev, corner: true }))}
         className="group"
       >
         <div
@@ -93,7 +92,6 @@ const ResizableLayout = ({
         >
           {children[0]}
         </div>
-
         <div
           className={`absolute w-full h-3 cursor-row-resize rounded group transition-colors ${
             isDragging.horizontal || isDragging.corner
@@ -104,11 +102,12 @@ const ResizableLayout = ({
             top: `${horizontalDividerPosition}%`,
             transform: "translateY(-50%)",
           }}
-          onMouseDown={() => setIsDragging({ ...isDragging, horizontal: true })}
+          onMouseDown={() =>
+            setIsDragging((prev) => ({ ...prev, horizontal: true }))
+          }
         >
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-6 rounded group-hover:opacity-100 transition-opacity" />
         </div>
-
         <div
           style={{ height: `${100 - horizontalDividerPosition}%` }}
           className="overflow-auto p-4 border-t"
@@ -127,7 +126,9 @@ const ResizableLayout = ({
           left: `${verticalDividerPosition}%`,
           transform: "translateX(-50%)",
         }}
-        onMouseDown={() => setIsDragging({ ...isDragging, vertical: true })}
+        onMouseDown={() =>
+          setIsDragging((prev) => ({ ...prev, vertical: true }))
+        }
       >
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-6 rounded group-hover:opacity-100 transition-opacity" />
       </div>
@@ -135,12 +136,15 @@ const ResizableLayout = ({
       <aside
         className={`${COLORS.containerBg} rounded-lg shadow-lg p-4 overflow-auto`}
         style={{ gridColumn: "2 / 3", height: "100%" }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseMove={(e) => e.stopPropagation()}
       >
         {children[2]}
       </aside>
+
       <div
         style={cornerStyle}
-        onMouseDown={() => setIsDragging({ ...isDragging, corner: true })}
+        onMouseDown={() => setIsDragging((prev) => ({ ...prev, corner: true }))}
       />
     </div>
   );
