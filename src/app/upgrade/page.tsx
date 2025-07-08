@@ -8,6 +8,9 @@ import { Crown, Database, Check, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast';
 
+// This page needs to be dynamic because it uses getServerSession
+export const dynamic = 'force-dynamic'
+
 export default async function UpgradePage() {
   console.log('📈 Upgrade page loading at:', new Date().toISOString());
   

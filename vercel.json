@@ -1,6 +1,12 @@
 {
+  "version": 2,
   "framework": "nextjs",
-  "env": {
-    "DATABASE_URL": "postgresql://postgres.vmmdfykdgvwgrtpwiynv:RMMTxPEKApfbUOFw@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
-  }
+  "buildCommand": "npm run vercel-build",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"],
+  "crons": []
 }

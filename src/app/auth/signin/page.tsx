@@ -3,6 +3,9 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { SignInForm } from '@/components/auth/signin-form'
 
+// This page needs to be dynamic because it uses getServerSession
+export const dynamic = 'force-dynamic'
+
 export default async function SignInPage() {
   console.log('🏠 SignIn page loading at:', new Date().toISOString());
   
