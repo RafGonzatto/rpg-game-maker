@@ -270,7 +270,7 @@ export default function QuestNodesView({
       if (!isPanning || e.target.closest(INTERACTIVE)) return;
       handlePanMove(e);
     },
-    [isPanning, handlePanMove]
+    [isPanning, handlePanMove, INTERACTIVE]
   );
   const handleSectionClick = (e) => {
     if (!e.target.closest(INTERACTIVE) && !connecting) setConnecting(null);

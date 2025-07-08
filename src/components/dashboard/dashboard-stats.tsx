@@ -23,13 +23,24 @@ interface DashboardStatsProps {
 export function DashboardStats({ userId, plan, stats }: DashboardStatsProps) {
   // Se for FREE, calcula client-side; se não, usa stats do SSR
   const isFreePlan = plan === 'FREE';
-  const { quests: localQuests, factions: localFactions, types: localTypes } = useLocalStorage();
+
+  // Always call hooks at the top level
+  const { data: apiQuests = [] } = useQuests();
+  const { data: apiFactions = [] } = useFactions();
+  const { data: apiTypes = [] } = useQuestTypes();
+  const {
+    quests: localQuestsData,
+    factions: localFactionsData,
+    types: localTypesData,
+  } = useLocalStorage();
+
+  // Use appropriate data source
+  const quests = plan === 'FREE' ? localQuestsData : apiQuests;
+  const factions = plan === 'FREE' ? localFactionsData : apiFactions;
+  const types = plan === 'FREE' ? localTypesData : apiTypes;
 
   let data = stats;
-  if (isFreePlan) {
-    const quests = localQuests;
-    const factions = localFactions;
-    const types = localTypes;
+  if (plan === 'FREE') {
     const totalQuests = quests.length;
     const completedQuests = quests.filter(q => q.unlocks && q.unlocks.length > 0).length;
     const questsWithoutRequirements = quests.filter(q => q.requires.length === 0).length;
@@ -46,7 +57,7 @@ export function DashboardStats({ userId, plan, stats }: DashboardStatsProps) {
     };
   }
 
-  if (!data) return <div>Nenhum dado encontrado.</div>
+  if (!data) return <div>Nenhum dado encontrado.</div>;
 
   // Desestruturação dos dados
   const {
@@ -56,24 +67,7 @@ export function DashboardStats({ userId, plan, stats }: DashboardStatsProps) {
     averageRequirements,
     factionsCount,
     typesCount,
-  } = data
-
-  // API data for Premium users
-  const { data: apiQuests = [] } = useQuests()
-  const { data: apiFactions = [] } = useFactions()
-  const { data: apiTypes = [] } = useQuestTypes()
-
-  // Local storage data for Free users
-  const {
-    quests: localQuestsData,
-    factions: localFactionsData,
-    types: localTypesData,
-  } = useLocalStorage()
-
-  // Use appropriate data source
-  const quests = isFreePlan ? localQuestsData : apiQuests
-  const factions = isFreePlan ? localFactionsData : apiFactions
-  const types = isFreePlan ? localTypesData : apiTypes
+  } = data;
 
   // Faction distribution
   const factionStats = factions.map(faction => ({

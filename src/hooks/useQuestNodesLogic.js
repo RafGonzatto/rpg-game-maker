@@ -300,32 +300,35 @@ export default function useQuestNodesLogic({
   }, [formWindow, minimized.form, toggleSection]);
 
   // Minimiza seções
-  const toggleSection = (section) => {
-    if (section === "details") {
-      if (minimized.details) {
-        setHorizontalDividerPosition(previousPositions.horizontal);
-      } else {
-        setPreviousPositions((p) => ({
-          ...p,
-          horizontal: horizontalDividerPosition,
-        }));
-        setHorizontalDividerPosition(95);
+  const toggleSection = useCallback(
+    (section) => {
+      if (section === "details") {
+        if (minimized.details) {
+          setHorizontalDividerPosition(previousPositions.horizontal);
+        } else {
+          setPreviousPositions((p) => ({
+            ...p,
+            horizontal: horizontalDividerPosition,
+          }));
+          setHorizontalDividerPosition(95);
+        }
+        setMinimized((p) => ({ ...p, details: !p.details }));
       }
-      setMinimized((p) => ({ ...p, details: !p.details }));
-    }
-    if (section === "form") {
-      if (minimized.form) {
-        setVerticalDividerPosition(previousPositions.vertical);
-      } else {
-        setPreviousPositions((p) => ({
-          ...p,
-          vertical: verticalDividerPosition,
-        }));
-        setVerticalDividerPosition(98);
+      if (section === "form") {
+        if (minimized.form) {
+          setVerticalDividerPosition(previousPositions.vertical);
+        } else {
+          setPreviousPositions((p) => ({
+            ...p,
+            vertical: verticalDividerPosition,
+          }));
+          setVerticalDividerPosition(98);
+        }
+        setMinimized((p) => ({ ...p, form: !p.form }));
       }
-      setMinimized((p) => ({ ...p, form: !p.form }));
-    }
-  };
+    },
+    [minimized, previousPositions, horizontalDividerPosition, verticalDividerPosition]
+  );
 
   // Exportar/Importar JSON
   const exportMissions = () => {
