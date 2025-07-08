@@ -36,17 +36,17 @@ export default function QuestGraphView({
   onImport,
   onAddQuest,
 }) {
-  if (!missions) return <p>Carregando missões...</p>;
-
+  // Garante que hooks sempre sejam chamados
   const [connecting, setConnecting] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const width = 1200,
     height = 800;
-  const nodes = Object.values(missions);
+  const safeMissions = missions || {};
+  const nodes = Object.values(safeMissions);
   const links = nodes.flatMap((node) =>
-    node.unlocks.map((targetId) => ({ source: node.id, target: targetId }))
+    (node.unlocks || []).map((targetId) => ({ source: node.id, target: targetId }))
   );
   const [positions, setPositions] = useState({});
   const simRef = useRef(null);
@@ -82,6 +82,8 @@ export default function QuestGraphView({
     simRef.current = sim;
     return () => sim.stop();
   }, [nodes, links]);
+
+  if (!missions) return <p>Carregando missões...</p>;
 
   // Atualiza a simulação quando os sliders mudam
   useEffect(() => {
