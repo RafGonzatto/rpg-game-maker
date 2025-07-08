@@ -25,7 +25,8 @@ export default async function UpgradePage() {
   if (!session) {
     console.log('❌ No session, redirecting to signin');
     console.log('🕐 Redirect to signin timestamp:', new Date().toISOString());
-    redirect('/auth/signin')
+    redirect('/auth/signin');
+    return null;
   }
   
   // Redireciona para o dashboard se já tiver qualquer plano
@@ -40,13 +41,17 @@ export default async function UpgradePage() {
 
   async function handleSelectPlan(plan: 'FREE' | 'PREMIUM') {
     try {
-      const res = await fetch('/api/user/plan', {
-        method: 'POST',
+      if (!session || !session.user?.id) {
+        toast.error('Sessão inválida. Faça login novamente.');
+        return;
+      }
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ id: session.user.id, plan }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         toast.error(data.error || 'Erro ao salvar plano');
         return;
       }
@@ -153,11 +158,15 @@ export default async function UpgradePage() {
                   Suporte prioritário
                 </li>
               </ul>
-              <Button className="w-full" disabled>
-                Em desenvolvimento
+              <Button
+                className="w-full"
+                onClick={() => handleSelectPlan('PREMIUM')}
+                disabled={session.user.plan === 'PREMIUM'}
+              >
+                Fazer upgrade para Premium
               </Button>
               <p className="text-xs text-gray-500 text-center">
-                * Para demonstração, use o script de upgrade no terminal
+                * Para demonstração, use o botão acima ou o script de upgrade no terminal
               </p>
             </CardContent>
           </Card>

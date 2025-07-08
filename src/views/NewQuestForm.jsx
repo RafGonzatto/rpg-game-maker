@@ -3,6 +3,8 @@
 // import { Button } from "../components/ui/Button";
 // import { Input } from "../components/ui/Input";
 // import { Label } from "../components/ui/Label";
+// import { useSession } from "next-auth/react";
+// import { useCreateQuest } from "../hooks/use-quest-api";
 
 // const NewQuestForm = ({
 //   onSave,
@@ -13,6 +15,15 @@
 //   setFormState,
 // }) => {
 //   const [filter, setFilter] = React.useState("");
+//   const { data: session } = useSession();
+//   const isPremium = session?.user?.plan === "PREMIUM";
+//   const {
+//     mutate: createQuest,
+//     isLoading,
+//     isError,
+//     error,
+//     isSuccess,
+//   } = useCreateQuest();
 
 //   const filtered = Object.entries(missions).filter(([, m]) =>
 //     m.title.toLowerCase().includes(filter.toLowerCase())
@@ -24,7 +35,12 @@
 //       .toLowerCase()
 //       .replace(/[^a-z0-9]+/g, "_")
 //       .replace(/^_+|_+$/g, "");
-//     onSave({ ...formState, id });
+//     const questData = { ...formState, id };
+//     if (isPremium) {
+//       createQuest(questData);
+//     } else if (onSave) {
+//       onSave(questData);
+//     }
 //     setFormState({
 //       id: "",
 //       title: "",
@@ -156,9 +172,23 @@
 //           ))}
 //         </div>
 //       </div>
-//       <Button type="submit" className="w-full">
-//         {formState.id ? "Atualizar Missão" : "Adicionar Missão"}
+//       <Button type="submit" className="w-full" disabled={isLoading}>
+//         {isLoading
+//           ? "Salvando..."
+//           : formState.id
+//           ? "Atualizar Missão"
+//           : "Adicionar Missão"}
 //       </Button>
+//       {isError && (
+//         <div className="text-red-500 text-sm mt-2">
+//           Erro ao salvar: {error?.message || "Tente novamente."}
+//         </div>
+//       )}
+//       {isSuccess && (
+//         <div className="text-green-600 text-sm mt-2">
+//           Missão salva com sucesso!
+//         </div>
+//       )}
 //     </form>
 //   );
 // };

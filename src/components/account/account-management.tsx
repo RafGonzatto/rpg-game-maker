@@ -75,13 +75,46 @@ export function AccountManagement({ user }: AccountManagementProps) {
     }
   }
 
-  const handlePlanUpgrade = () => {
-    // Se já for premium, mostrar opções de gerenciamento
+  const handlePlanUpgrade = async () => {
     if (isPremium) {
       toast('Você já tem o plano Premium ativo!')
       return
     }
-    window.location.href = '/upgrade'
+    try {
+      // 1. Faz upgrade do plano
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, plan: 'PREMIUM' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Erro ao fazer upgrade');
+        return;
+      }
+
+      // 2. Migra quests do localStorage para o backend
+      const localQuests = JSON.parse(localStorage.getItem('quests') || '[]');
+      for (const quest of localQuests) {
+        try {
+          await fetch('/api/quests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(quest),
+          });
+        } catch (e) {
+          // Se falhar, apenas loga
+          console.error('Erro ao migrar quest:', quest, e);
+        }
+      }
+      localStorage.removeItem('quests');
+
+      toast.success('Upgrade realizado e dados migrados!');
+      // 3. Atualiza a sessão para refletir o novo plano
+      if (update) await update();
+    } catch (e) {
+      toast.error('Erro inesperado ao fazer upgrade');
+    }
   }
 
   return (
@@ -175,12 +208,9 @@ export function AccountManagement({ user }: AccountManagementProps) {
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handlePlanUpgrade} className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => window.location.href = '/dashboard'} className="flex items-center gap-2">
                   <Crown className="w-4 h-4" />
-                  Gerenciar Plano
-                </Button>
-                <Button variant="outline" onClick={() => window.location.href = '/upgrade'}>
-                  Alterar Plano
+                  Ir para Dashboard
                 </Button>
               </div>
             )}

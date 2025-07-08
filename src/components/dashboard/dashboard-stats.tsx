@@ -9,11 +9,54 @@ import { BarChart3, Trophy, Users, Zap, Target, Crown } from 'lucide-react'
 
 interface DashboardStatsProps {
   userId: string
+  plan: string
+  stats: {
+    totalQuests: number
+    completedQuests: number
+    questsWithoutRequirements: number
+    averageRequirements: number
+    factionsCount: number
+    typesCount: number
+  } | null
 }
 
-export function DashboardStats({ userId }: DashboardStatsProps) {
-  const { data: session } = useSession()
-  const isFreePlan = session?.user?.plan === 'FREE' || !session
+export function DashboardStats({ userId, plan, stats }: DashboardStatsProps) {
+  // Se for FREE, calcula client-side; se não, usa stats do SSR
+  const isFreePlan = plan === 'FREE';
+  const { quests: localQuests, factions: localFactions, types: localTypes } = useLocalStorage();
+
+  let data = stats;
+  if (isFreePlan) {
+    const quests = localQuests;
+    const factions = localFactions;
+    const types = localTypes;
+    const totalQuests = quests.length;
+    const completedQuests = quests.filter(q => q.unlocks && q.unlocks.length > 0).length;
+    const questsWithoutRequirements = quests.filter(q => q.requires.length === 0).length;
+    const averageRequirements = totalQuests > 0
+      ? quests.reduce((acc, q) => acc + q.requires.length, 0) / totalQuests
+      : 0;
+    data = {
+      totalQuests,
+      completedQuests,
+      questsWithoutRequirements,
+      averageRequirements,
+      factionsCount: factions.length,
+      typesCount: types.length,
+    };
+  }
+
+  if (!data) return <div>Nenhum dado encontrado.</div>
+
+  // Desestruturação dos dados
+  const {
+    totalQuests,
+    completedQuests,
+    questsWithoutRequirements,
+    averageRequirements,
+    factionsCount,
+    typesCount,
+  } = data
 
   // API data for Premium users
   const { data: apiQuests = [] } = useQuests()
@@ -22,23 +65,15 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
 
   // Local storage data for Free users
   const {
-    quests: localQuests,
-    factions: localFactions,
-    types: localTypes,
+    quests: localQuestsData,
+    factions: localFactionsData,
+    types: localTypesData,
   } = useLocalStorage()
 
   // Use appropriate data source
-  const quests = isFreePlan ? localQuests : apiQuests
-  const factions = isFreePlan ? localFactions : apiFactions
-  const types = isFreePlan ? localTypes : apiTypes
-
-  // Calculate statistics
-  const totalQuests = quests.length
-  const completedQuests = quests.filter(q => q.unlocks && q.unlocks.length > 0).length
-  const questsWithoutRequirements = quests.filter(q => q.requires.length === 0).length
-  const averageRequirements = totalQuests > 0 
-    ? quests.reduce((acc, q) => acc + q.requires.length, 0) / totalQuests 
-    : 0
+  const quests = isFreePlan ? localQuestsData : apiQuests
+  const factions = isFreePlan ? localFactionsData : apiFactions
+  const types = isFreePlan ? localTypesData : apiTypes
 
   // Faction distribution
   const factionStats = factions.map(faction => ({
@@ -72,7 +107,7 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
     },
     {
       title: 'Facções Ativas',
-      value: factions.length,
+      value: factionsCount,
       icon: Users,
       description: 'Facções criadas',
       color: 'text-purple-600',
@@ -80,7 +115,7 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
     },
     {
       title: 'Tipos de Quest',
-      value: types.length,
+      value: typesCount,
       icon: BarChart3,
       description: 'Tipos disponíveis',
       color: 'text-orange-600',

@@ -136,12 +136,46 @@ npm run type-check   # Verifica tipos TypeScript
 - Componentes Shadcn/ui
 - Design responsivo
 
-## 🚀 Como Executar
+## 🛠️ Arquitetura e Conceitos Avançados
 
-1. **Clone o projeto**
-2. **Configure `.env.local`** (copie de `.env.local.example`)
-3. **Instale dependências**: `npm install`
-4. **Setup banco**: `npm run db:push && npm run db:seed`
-5. **Execute**: `npm run dev`
+### SSR (Server-side Rendering)
+- Utilizado em páginas sensíveis a dados do usuário, como o dashboard (`src/app/dashboard/page.tsx`) e rotas dinâmicas (`src/app/quests/[id]/page.tsx`, `src/app/users/[id]/page.tsx`, `src/app/factions/[id]/page.tsx`).
+- Busca dados no servidor, garantindo segurança, performance e SEO.
+- Exemplo: O dashboard busca estatísticas do usuário no servidor e passa como props para o componente.
 
-Projeto estará rodando em http://localhost:3000
+### CSR (Client-side Rendering)
+- Utilizado em componentes de visualização e formulários interativos, como `QuestVisualizer`, `QuestNodesView` e `NewQuestForm`.
+- Dados são buscados e mutados no client-side usando React Query, garantindo experiência fluida e responsiva.
+- Usuários FREE usam localStorage, enquanto PREMIUM usam API.
+
+### Rotas e Páginas Dinâmicas com API Routes
+- Rotas dinâmicas para quests, usuários e facções: `/quests/[id]`, `/users/[id]`, `/factions/[id]`.
+- API Routes RESTful para CRUD completo: `src/app/api/quests`, `src/app/api/quests/[id].ts`, `src/app/api/users`, `src/app/api/users/[id].ts`, `src/app/api/factions`, `src/app/api/factions/[id].ts`.
+- O frontend consome essas rotas via React Query.
+
+### Autenticação com NextAuth
+- Configurada em `src/app/api/auth` e usada globalmente via `SessionProvider` em `src/app/layout.tsx`.
+- Middleware (`src/middleware.ts`) protege todas as rotas sensíveis, redirecionando não autenticados para `/auth/signin`.
+- Sessão disponível em SSR e CSR.
+
+### Gerenciamento de Estado com React Query
+- Todos os fluxos de dados (fetch, mutação, cache) usam hooks customizados em `src/hooks/use-quest-api.ts`.
+- O cache é invalidado automaticamente após mutações.
+- O estado global de dados de API é padronizado e centralizado.
+
+### Boas Práticas
+- SSR para páginas sensíveis, CSR para interatividade.
+- API Routes RESTful para todas as entidades.
+- Hooks customizados para padronizar acesso a dados.
+- Middleware para segurança.
+- Documentação e exemplos no código.
+
+---
+
+## 👥 Contribuindo
+- Siga os padrões de SSR/CSR e use sempre React Query para dados de API.
+- Novas entidades devem ter API Route, hook customizado e página dinâmica.
+- Proteja rotas sensíveis com autenticação.
+- Mantenha o README atualizado com novas práticas.
+
+---

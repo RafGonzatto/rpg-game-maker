@@ -2,15 +2,43 @@ import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
+import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
-  
   if (!session) {
     redirect('/auth/signin')
+  }
+
+  // Buscar dados do usuário e estatísticas do backend para SSR (Premium)
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, email: true, plan: true },
+  })
+
+  let stats = null
+  if (user?.plan === 'PREMIUM') {
+    // Buscar estatísticas do backend para o usuário
+    const totalQuests = await prisma.quest.count({ where: { userId: user.id } })
+    // Considera quest completa se tem pelo menos 1 unlock
+    const allQuests = await prisma.quest.findMany({ where: { userId: user.id }, select: { unlocks: true, requires: true } })
+    const completedQuests = allQuests.filter(q => q.unlocks && q.unlocks.length > 0).length
+    const questsWithoutRequirements = allQuests.filter(q => !q.requires || q.requires.length === 0).length
+    const averageRequirements = allQuests.length > 0 ? allQuests.reduce((acc, q) => acc + (q.requires ? q.requires.length : 0), 0) / allQuests.length : 0
+    // Remove userId dos filtros de Faction e QuestType
+    const factionsCount = await prisma.faction.count()
+    const typesCount = await prisma.questType.count()
+    stats = {
+      totalQuests,
+      completedQuests,
+      questsWithoutRequirements,
+      averageRequirements,
+      factionsCount,
+      typesCount,
+    }
   }
 
   return (
@@ -29,9 +57,19 @@ export default async function DashboardPage() {
           <p className="text-gray-600 mt-2">
             Acompanhe suas estatísticas e progresso das quests
           </p>
+          <div className="mt-4 p-4 bg-white rounded shadow flex flex-col md:flex-row md:items-center gap-2">
+            <div>
+              <span className="font-semibold">Usuário:</span> {user?.name || session.user.name}
+            </div>
+            <div>
+              <span className="font-semibold">Email:</span> {user?.email || session.user.email}
+            </div>
+            <div>
+              <span className="font-semibold">Plano:</span> {user?.plan || session.user.plan}
+            </div>
+          </div>
         </div>
-        
-        <DashboardStats userId={session.user.id} />
+        <DashboardStats userId={session.user.id} plan={user?.plan || 'FREE'} stats={stats} />
       </div>
     </div>
   )

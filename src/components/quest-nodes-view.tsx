@@ -271,6 +271,7 @@ export function QuestNodesView({
       reputation: formState.reputation || {},
     };
 
+    // Fallback robusto: se não houver onAddQuest, decide persistência conforme plano
     if (onAddQuest) {
       onAddQuest(quest);
       toast.success('Missão criada com sucesso!');
@@ -283,6 +284,67 @@ export function QuestNodesView({
         unlocks: [],
         reputation: {},
       });
+      return;
+    }
+
+    if (isFreePlan) {
+      // Salva no localStorage usando QuestService.js
+      try {
+        import('./QuestService').then(({ getInitialData, saveData, addQuest }) => {
+          const data = getInitialData();
+          const updatedMissions = addQuest(data.missions, quest);
+          saveData(updatedMissions, data.factions, data.types);
+          toast.success('Missão criada localmente!');
+          setFormState({
+            title: '',
+            faction: '',
+            type: '',
+            dialogo: '',
+            requires: [],
+            unlocks: [],
+            reputation: {},
+          });
+        });
+      } catch (err) {
+        toast.error('Erro ao salvar missão localmente!');
+      }
+    } else {
+      // Salva no backend via API e força atualização do grafo
+      fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...quest, unlocks: undefined }),
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Erro ao criar missão no backend');
+          return res.json();
+        })
+        .then(() => {
+          toast.success('Missão criada no backend!');
+          setFormState({
+            title: '',
+            faction: '',
+            type: '',
+            dialogo: '',
+            requires: [],
+            unlocks: [],
+            reputation: {},
+          });
+          // Força atualização do grafo de forma robusta
+          // Dispara um evento customizado para integração com React Query (caso exista listener)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('quest-created'));
+            // fallback: recarrega a página após pequeno delay se ninguém tratar o evento
+            setTimeout(() => {
+              // Se o grafo não atualizar (listener não implementado), recarrega
+              // (pode ser removido se integração React Query for garantida)
+              window.location.reload();
+            }, 500);
+          }
+        })
+        .catch(() => {
+          toast.error('Erro ao criar missão no backend!');
+        });
     }
   };
 
@@ -511,9 +573,9 @@ export function QuestNodesView({
               <span>Conta</span>
             </Button>
           </Link>
-          <Link href="/upgrade">
+          <Link href="/dashboard">
             <Button size="sm" className="bg-yellow-200 hover:bg-yellow-300 text-yellow-900 border-yellow-400 border flex items-center gap-2">
-              <span>{session?.user?.plan === 'PREMIUM' ? 'Gerenciar Plano' : 'Fazer Upgrade'}</span>
+              <span>Dashboard</span>
             </Button>
           </Link>
           <Button size="sm" variant="outline" className="border-red-400 text-red-700" onClick={() => signOut()}>
