@@ -112,3 +112,5 @@ out/
 
 # Prisma
 migrations/
+
+.vercel

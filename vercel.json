@@ -1,6 +1,5 @@
 {
-  "buildCommand": "npm run vercel-build",
   "env": {
-    "DATABASE_URL": "@database_url"
+    "DATABASE_URL": "postgresql://postgres.vmmdfykdgvwgrtpwiynv:RMMTxPEKApfbUOFw@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
   }
 }
