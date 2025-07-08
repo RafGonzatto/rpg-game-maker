@@ -14,6 +14,7 @@
     "upgrade-user": "tsx scripts/manage-users.ts upgrade",
     "downgrade-user": "tsx scripts/manage-users.ts downgrade",
     "list-users": "tsx scripts/manage-users.ts list",
+    "vercel-build": "prisma generate && next build",
     "postinstall": "prisma generate"
   },
   "dependencies": {
