@@ -117,3 +117,4 @@ migrations/
 .vercel
 
 .vercel/output/**
+.vercel

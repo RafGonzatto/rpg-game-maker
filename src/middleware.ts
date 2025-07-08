@@ -1,0 +1,51 @@
+import { withAuth } from 'next-auth/middleware'
+
+export default withAuth(
+  function middleware(req) {
+    console.log('🛡️ Middleware called at:', new Date().toISOString());
+    console.log('🛡️ Request path:', req.nextUrl.pathname);
+    console.log('🛡️ Request method:', req.method);
+    // Middleware personalizado pode ser adicionado aqui
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        console.log('🔐 Authorization check at:', new Date().toISOString());
+        console.log('🔐 Token exists:', !!token);
+        console.log('🔐 Request path:', req.nextUrl.pathname);
+        console.log('🔐 Token data:', token ? { 
+          uid: token.uid, 
+          email: token.email, 
+          name: token.name 
+        } : null);
+        
+        // Permitir acesso a rotas de autenticação
+        if (req.nextUrl.pathname.startsWith('/auth/')) {
+          return true;
+        }
+        
+        const isAuthorized = !!token;
+        console.log('🔐 Authorization result:', isAuthorized);
+        
+        return isAuthorized;
+      },
+    },
+    pages: {
+      signIn: '/auth/signin',
+    },
+  }
+)
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+  ],
+}
