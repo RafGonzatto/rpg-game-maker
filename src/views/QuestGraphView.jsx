@@ -81,7 +81,7 @@ export default function QuestGraphView({
       });
     simRef.current = sim;
     return () => sim.stop();
-  }, [nodes, links]);
+  }, [nodes, links, linkDistance]);
 
   // Move all hooks to top-level, before any return/conditional
   // Atualiza a simulação quando os sliders mudam
@@ -108,7 +108,9 @@ export default function QuestGraphView({
   const handleZoomIn = () => setZoom((z) => z * 1.1);
   const handleZoomOut = () => setZoom((z) => z / 1.1);
 
-  if (!missions) return <p>Carregando missões...</p>;
+
+  // Always call hooks at the top level, never conditionally!
+  // Instead, render a loading message below if missions is not loaded
 
   const handleNodeClick = (nodeId) => {
     if (connecting && connecting !== nodeId) {
@@ -215,8 +217,8 @@ export default function QuestGraphView({
 
   // Durante o drag do nó, atualiza sua posição fixa
   useEffect(() => {
-    if (!draggingNodeId) return;
     function onPointerMove(e) {
+      if (!draggingNodeId) return;
       e.preventDefault();
       const coords = getSvgCoordinates(e);
       const node = nodes.find((n) => n.id === draggingNodeId);
@@ -227,6 +229,7 @@ export default function QuestGraphView({
       }
     }
     function onPointerUp(e) {
+      if (!draggingNodeId) return;
       const node = nodes.find((n) => n.id === draggingNodeId);
       if (node) {
         node.fx = null;
@@ -237,8 +240,10 @@ export default function QuestGraphView({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     }
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
+    if (draggingNodeId) {
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+    }
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
@@ -247,7 +252,13 @@ export default function QuestGraphView({
 
   return (
     <div className="h-screen grid grid-rows-[auto_1fr]">
-      <header className="p-4 flex flex-wrap gap-4 items-center justify-between border-b">
+      {(!missions) ? (
+        <div className="flex items-center justify-center h-full w-full">
+          <p>Carregando missões...</p>
+        </div>
+      ) : (
+        <>
+          <header className="p-4 flex flex-wrap gap-4 items-center justify-between border-b">
         <div className="flex gap-2">
           <Button variant="outline" onClick={onExport}>
             Exportar
@@ -436,20 +447,22 @@ export default function QuestGraphView({
           )}
         </div>
       </main>
-      {deleteId && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow-md">
-            <p className="mb-4">Tem certeza que deseja excluir esta missão?</p>
-            <div className="flex gap-4">
-              <Button variant="destructive" onClick={handleDeleteConfirm}>
-                Excluir
-              </Button>
-              <Button variant="outline" onClick={() => setDeleteId(null)}>
-                Cancelar
-              </Button>
+          {deleteId && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+              <div className="bg-white p-6 rounded shadow-md">
+                <p className="mb-4">Tem certeza que deseja excluir esta missão?</p>
+                <div className="flex gap-4">
+                  <Button variant="destructive" onClick={handleDeleteConfirm}>
+                    Excluir
+                  </Button>
+                  <Button variant="outline" onClick={() => setDeleteId(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
