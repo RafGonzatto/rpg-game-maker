@@ -13,6 +13,36 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+.interactive-element {
+  user-select: text; /* em vez de none */
+  -webkit-user-drag: none;
+}
+
+.no-pan {
+  pointer-events: auto !important;
+  touch-action: auto !important;
+}
+
+.no-pan select,
+.no-pan input,
+.no-pan textarea {
+  pointer-events: all !important;
+}
+form {
+  pointer-events: auto !important;
+}
+
+select,
+input,
+textarea,
+button {
+  pointer-events: auto !important;
+  user-select: text !important;
+}
+input[type="checkbox"].no-pan {
+  appearance: auto;
+  -webkit-appearance: auto;
+}
 
 h1 {
   font-size: 3.2em;

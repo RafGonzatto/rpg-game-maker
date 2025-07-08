@@ -1,11 +1,13 @@
-///////////QuestNodesView.jsx
-import React, { useState, useEffect } from "react";
+// QuestNodesView.jsx
+import React, { useState, useCallback, memo } from "react";
+import toast from 'react-hot-toast';
 import ReactDOM from "react-dom";
 import { QuestNode } from "./QuestNode";
 import { Button } from "../components/ui/Button";
 import ResizableLayout from "../components/ui/ResizableLayout";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
+import { Card } from "../components/ui/Card";
 import { AnimatedSprite, BeerAnimated } from "../utils/animation";
 import {
   Search,
@@ -16,9 +18,173 @@ import {
   Maximize2,
   ChevronRight,
 } from "lucide-react";
-import { Card } from "../components/ui/Card";
-import NewQuestForm from "./NewQuestForm";
 import useQuestNodesLogic from "../hooks/useQuestNodesLogic";
+
+function NewQuestForm({ onSave, missions, factions, types }) {
+  const [filter, setFilter] = useState("");
+  const [formState, setFormState] = useState({
+    id: "",
+    title: "",
+    faction: "",
+    type: "",
+    dialogo: "",
+    requires: [],
+    unlocks: [],
+    reputation: {},
+  });
+  const filtered = Object.entries(missions || {}).filter(([, m]) =>
+    m.title.toLowerCase().includes(filter.toLowerCase())
+  );
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formState.title || !formState.faction || !formState.type) {
+      toast.error('Preencha todos os campos obrigatórios!');
+      return;
+    }
+    const id = formState.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    try {
+      onSave({ ...formState, id });
+      toast.success('Missão criada com sucesso!');
+      setFormState({
+        id: "",
+        title: "",
+        faction: "",
+        type: "",
+        dialogo: "",
+        requires: [],
+        unlocks: [],
+        reputation: {},
+      });
+    } catch (e) {
+      toast.error('Erro ao criar missão!');
+    }
+  };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label>Título</Label>
+        <Input
+          required
+          value={formState.title}
+          onChange={(e) =>
+            setFormState((p) => ({ ...p, title: e.target.value }))
+          }
+        />
+      </div>
+      <div className="flex gap-2">
+        <div className="flex flex-col flex-1">
+          <Label>Facção</Label>
+          <select
+            required
+            className="p-2 border rounded"
+            value={formState.faction}
+            onChange={(e) =>
+              setFormState((p) => ({ ...p, faction: e.target.value }))
+            }
+          >
+            <option value="">Selecione</option>
+            {factions.map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col flex-1">
+          <Label>Tipo</Label>
+          <select
+            required
+            className="p-2 border rounded"
+            value={formState.type}
+            onChange={(e) =>
+              setFormState((p) => ({ ...p, type: e.target.value }))
+            }
+          >
+            <option value="">Selecione</option>
+            {types.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <Label>Diálogo</Label>
+        <textarea
+          className="w-full p-2 border rounded"
+          value={formState.dialogo}
+          onChange={(e) =>
+            setFormState((p) => ({ ...p, dialogo: e.target.value }))
+          }
+        />
+      </div>
+      <div>
+        <Label>Requisitos</Label>
+        <Input
+          type="text"
+          placeholder="Filtrar requisitos"
+          className="mb-2"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          {filtered.map(([id, m]) => (
+            <label key={id} className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formState.requires.includes(id)}
+                onChange={(e) => {
+                  if (e.target.checked)
+                    setFormState((p) => ({
+                      ...p,
+                      requires: [...p.requires, id],
+                    }));
+                  else
+                    setFormState((p) => ({
+                      ...p,
+                      requires: p.requires.filter((r) => r !== id),
+                    }));
+                }}
+              />
+              <span>{m.title}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <Label>Reputação</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {factions.map((f) => (
+            <div key={f.name} className="flex items-center space-x-2">
+              <Input
+                type="number"
+                className="w-16"
+                value={formState.reputation[f.name] || 0}
+                onChange={(e) =>
+                  setFormState((p) => ({
+                    ...p,
+                    reputation: {
+                      ...p.reputation,
+                      [f.name]: parseInt(e.target.value) || 0,
+                    },
+                  }))
+                }
+              />
+              <Label>{f.name}</Label>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Button type="submit" className="w-full">
+        {formState.id ? "Atualizar Missão" : "Adicionar Missão"}
+      </Button>
+    </form>
+  );
+}
 
 export default function QuestNodesView({
   missions,
@@ -34,8 +200,9 @@ export default function QuestNodesView({
     wallRight,
     filter,
     setFilter,
-    onExport,
-    onImport,
+    exportMissions,
+    importMissions,
+    saveMission,
     positions,
     connections,
     pan,
@@ -76,7 +243,7 @@ export default function QuestNodesView({
     factionSvgColors,
     connecting,
     setConnecting,
-    onStartConnect,
+    isPanning,
   } = useQuestNodesLogic({
     missions,
     setMissions,
@@ -88,104 +255,38 @@ export default function QuestNodesView({
     setSelectedQuest,
   });
 
-  const [isTyping, setIsTyping] = useState(false);
-  const [formState, setFormState] = useState({
-    id: "",
-    title: "",
-    faction: "",
-    type: "",
-    dialogo: "",
-    requires: [],
-    unlocks: [],
-    reputation: {},
-  });
-
-  const isEditing = () =>
-    document.activeElement && document.activeElement.closest("form");
-
-  const isFormElement = (element) =>
-    element.tagName === "INPUT" ||
-    element.tagName === "SELECT" ||
-    element.tagName === "TEXTAREA" ||
-    element.closest("form") !== null;
-
-  const handleSectionMouseDown = (e) => {
-    if (isFormElement(e.target)) return;
-    handlePanStart(e);
-  };
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (handlePanEnd) handlePanEnd();
-    };
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => {
-      window.removeEventListener("mouseup", handleGlobalMouseUp);
-    };
-  }, [handlePanEnd]);
-
-  useEffect(() => {
-    const handleFocus = (e) => {
-      if (
-        e.target.tagName === "INPUT" ||
-        e.target.tagName === "SELECT" ||
-        e.target.tagName === "TEXTAREA"
-      )
-        setIsTyping(true);
-    };
-    const handleBlur = () => setIsTyping(false);
-    document.addEventListener("focus", handleFocus, true);
-    document.addEventListener("blur", handleBlur, true);
-    return () => {
-      document.removeEventListener("focus", handleFocus, true);
-      document.removeEventListener("blur", handleBlur, true);
-    };
-  }, []);
-
-  const handleSectionClick = (e) => {
-    if (isFormElement(e.target)) return;
-    if (!connecting) setConnecting(null);
-  };
-
-  const handleSectionMouseMove = (e) => {
-    if (!isFormElement(e.target)) {
+  const handleSectionMouseDown = (e) => handlePanStart(e);
+  const INTERACTIVE = [
+    "input",
+    "select",
+    "textarea",
+    "button",
+    "label",
+    ".no-pan",
+    "[contenteditable='true']",
+  ].join(",");
+  const handleSectionMouseMove = useCallback(
+    (e) => {
+      if (!isPanning || e.target.closest(INTERACTIVE)) return;
       handlePanMove(e);
-    }
+    },
+    [isPanning, handlePanMove]
+  );
+  const handleSectionClick = (e) => {
+    if (!e.target.closest(INTERACTIVE) && !connecting) setConnecting(null);
   };
-
-  useEffect(() => {
-    let startPos = null;
-    const onMouseDown = (e) => (startPos = { x: e.clientX, y: e.clientY });
-    const onMouseUp = (e) => {
-      if (
-        startPos &&
-        Math.hypot(e.clientX - startPos.x, e.clientY - startPos.y) < 5
-      )
-        setConnecting(null);
-      startPos = null;
-    };
-    const onKeyUp = (e) => e.key === "Escape" && setConnecting(null);
-    window.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, []);
-
-  const DetailsContent = () => {
+  const DetailsContent = memo(() => {
     if (!selectedQuest) return null;
     const quest = missions[selectedQuest];
+    if (!quest) return null;
     return (
-      <Card className="p-6 bg-white shadow-none border-2 border-gray-100">
+      <Card className="p-6 bg-white border-2 border-gray-100 shadow-none">
         <h2 className="font-bold text-2xl mb-6 border-b pb-3 text-gray-800">
           {quest.title}
         </h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="font-semibold text-gray-700">Facção</p>
+            <p className="font-semibold">Facção</p>
             <span
               className="px-3 py-1 rounded-full text-sm"
               style={{
@@ -196,14 +297,14 @@ export default function QuestNodesView({
             </span>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Tipo</p>
+            <p className="font-semibold">Tipo</p>
             <span className="px-3 py-1 bg-gray-100 rounded-full text-sm">
               {quest.type}
             </span>
           </div>
         </div>
         <div className="mt-4">
-          <p className="font-semibold text-gray-700 mb-2">Requer</p>
+          <p className="font-semibold mb-2">Requer</p>
           <div className="bg-gray-50 p-3 rounded">
             {quest.requires?.length ? (
               <ul className="space-y-1">
@@ -220,17 +321,14 @@ export default function QuestNodesView({
           </div>
         </div>
         <div className="mt-4">
-          <p className="font-semibold text-gray-700 mb-2">Desbloqueia</p>
+          <p className="font-semibold mb-2">Desbloqueia</p>
           <div className="bg-gray-50 p-3 rounded">
             {quest.unlocks?.length ? (
               <ul className="space-y-1">
-                {quest.unlocks.map((unlockId) => (
-                  <li
-                    key={unlockId}
-                    className="text-sm flex items-center gap-2"
-                  >
+                {quest.unlocks.map((u) => (
+                  <li key={u} className="text-sm flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    {missions[unlockId]?.title || unlockId}
+                    {missions[u]?.title || u}
                   </li>
                 ))}
               </ul>
@@ -241,7 +339,7 @@ export default function QuestNodesView({
         </div>
         {quest.dialogo && (
           <div className="mt-4">
-            <p className="font-semibold text-gray-700 mb-2">Diálogo</p>
+            <p className="font-semibold mb-2">Diálogo</p>
             <div className="bg-gray-50 p-3 rounded text-sm whitespace-pre-wrap">
               {quest.dialogo}
             </div>
@@ -249,19 +347,19 @@ export default function QuestNodesView({
         )}
         {quest.reputation && (
           <div className="mt-4">
-            <p className="font-semibold text-gray-700 mb-2">Reputação</p>
+            <p className="font-semibold mb-2">Reputação</p>
             <div className="bg-gray-50 p-3 rounded">
               <ul className="space-y-1">
                 {Object.entries(quest.reputation).map(([fac, val]) => (
                   <li
                     key={fac}
-                    className="text-sm flex items-center justify-between"
+                    className="flex items-center justify-between text-sm"
                   >
                     <span>{fac}</span>
                     <span
                       className={val > 0 ? "text-green-500" : "text-red-500"}
                     >
-                      {val > 0 ? `${val}` : val}
+                      {val}
                     </span>
                   </li>
                 ))}
@@ -271,57 +369,51 @@ export default function QuestNodesView({
         )}
       </Card>
     );
-  };
-
-  const FormContent = () => (
+  });
+  const FormContent = memo(() => (
     <>
       <NewQuestForm
-        onSave={onExport}
+        onSave={saveMission}
         missions={missions}
         factions={factions}
         types={types}
-        formState={formState}
-        setFormState={setFormState}
       />
-      <h2 className="text-lg flex-col-2 font-bold mb-4">Gerenciar Facções</h2>
+      <h2 className="text-lg font-bold mb-4 mt-6">Gerenciar Facções</h2>
       <form onSubmit={handleAddFaction} className="space-y-4">
-        <Label htmlFor="factionName">Nome da Facção</Label>
+        <Label>Nome da Facção</Label>
         <Input
-          id="factionName"
-          type="text"
-          placeholder="Digite o nome da facção"
+          required
           value={newFaction.name}
           onChange={(e) =>
             setNewFaction({ ...newFaction, name: e.target.value })
           }
-          required
         />
-        <Label htmlFor="bgColor">Cor de Fundo</Label>
+        <Label>Cor de Fundo</Label>
         <div className="flex items-center gap-2">
           <Input
-            id="bgColor"
+            required
             type="color"
+            className="w-24 h-10 cursor-pointer"
             value={newFaction.bgColor}
             onChange={(e) =>
               setNewFaction({ ...newFaction, bgColor: e.target.value })
             }
-            className="w-24 h-10 p-1 cursor-pointer"
-            required
           />
-          <span className="text-sm text-gray-600">{newFaction.bgColor}</span>
+          <span className="text-sm">{newFaction.bgColor}</span>
         </div>
-        <Label htmlFor="borderColor">Cor da Borda</Label>
-        <Input
-          id="borderColor"
-          type="color"
-          value={newFaction.borderColor}
-          onChange={(e) =>
-            setNewFaction({ ...newFaction, borderColor: e.target.value })
-          }
-          className="w-24 h-10 p-1 cursor-pointer"
-          required
-        />
-        <span className="text-sm text-gray-600">{newFaction.borderColor}</span>
+        <Label>Cor da Borda</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            required
+            type="color"
+            className="w-24 h-10 cursor-pointer"
+            value={newFaction.borderColor}
+            onChange={(e) =>
+              setNewFaction({ ...newFaction, borderColor: e.target.value })
+            }
+          />
+          <span className="text-sm">{newFaction.borderColor}</span>
+        </div>
         <div className="mt-4">
           <Label>Prévia</Label>
           <div
@@ -332,30 +424,29 @@ export default function QuestNodesView({
             }}
           />
         </div>
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full mt-4">
           Adicionar Facção
         </Button>
       </form>
-      <div className="mt-8">
-        <h2 className="text-lg font-bold mb-2">Gerenciar Tipos</h2>
-        <form onSubmit={handleAddType} className="space-y-2">
-          <Input
-            type="text"
-            placeholder="Nome do Tipo"
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
-            required
-          />
-          <Button type="submit" className="w-full">
-            Adicionar Tipo
-          </Button>
-        </form>
-      </div>
+      <h2 className="text-lg font-bold mb-2 mt-8">Gerenciar Tipos</h2>
+      <form onSubmit={handleAddType} className="space-y-2">
+        <Input
+          required
+          type="text"
+          placeholder="Nome do Tipo"
+          value={newType}
+          onChange={(e) => setNewType(e.target.value)}
+        />
+        <Button type="submit" className="w-full">
+          Adicionar Tipo
+        </Button>
+      </form>
     </>
-  );
+  ));
+  const MemoNode = memo(QuestNode);
 
   return (
-    <div className="h-screen flex flex-col bg-yellow-800 overflow-hidden ">
+    <div className="h-screen flex flex-col bg-yellow-800 overflow-hidden">
       <header
         ref={headerRef}
         className="relative bg-rose-600 h-[20vh] grid grid-cols-4"
@@ -365,7 +456,7 @@ export default function QuestNodesView({
           <div
             className="w-full h-full"
             style={{
-              backgroundImage: `url(../src/images/board.png)`,
+              backgroundImage: "url(../src/images/board.png)",
               imageRendering: "pixelated",
               backgroundSize: "auto 100%",
               backgroundRepeat: "repeat-x",
@@ -376,19 +467,20 @@ export default function QuestNodesView({
         <BeerAnimated />
         <div
           ref={wallRef}
-          className="z-[5] absolute left-[15%] top-0 w-full h-[90%]"
+          className="pointer-events-none absolute left-[15%] top-0 w-full h-[90%]"
+          style={{ zIndex: 5 }}
         >
           <div
             className="w-full h-full"
             style={{
-              backgroundImage: `url(../src/images/wall.png)`,
+              backgroundImage: "url(../src/images/wall.png)",
               imageRendering: "pixelated",
               backgroundSize: "auto 100%",
               backgroundRepeat: "no-repeat",
             }}
           />
         </div>
-        <div className="bg-[url('/sprites/sprite2.png')] bg-cover animate-sprite" />
+        <div />
         <div className="flex flex-col z-50 justify-center p-4">
           <h1
             className="z-[40] text-2xl font-bold text-white"
@@ -401,19 +493,18 @@ export default function QuestNodesView({
             style={{ position: "absolute", left: wallRight + 10 }}
           >
             <Input
-              type="text"
               placeholder="   Filtrar missões..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
               className="pl-10 bg-amber-50"
               prefixIcon={<Search />}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
             />
-            <Button onClick={onExport}>Exportar</Button>
+            <Button onClick={exportMissions}>Exportar</Button>
             <input
               type="file"
               accept=".json"
-              onChange={onImport}
               className="hidden"
+              onChange={importMissions}
               id="file-input-nodes"
             />
             <Button
@@ -436,14 +527,15 @@ export default function QuestNodesView({
           <section
             ref={sectionRef}
             className="relative bg-white rounded-lg overflow-visible"
+            style={{ height: "calc(100vh - 180px)" }}
             onMouseDown={handleSectionMouseDown}
             onMouseMove={handleSectionMouseMove}
             onClick={handleSectionClick}
-            style={{ height: "calc(100vh - 180px)" }}
+            onMouseUp={handlePanEnd}
           >
             <div
               ref={containerRef}
-              className="bg-yellow-50 relative h-full w-full overflow-hidden"
+              className="bg-yellow-50 relative h-full w-full"
             >
               <svg ref={svgRef} className="absolute top-0 left-0 w-full h-full">
                 <defs>
@@ -461,7 +553,7 @@ export default function QuestNodesView({
                 {connections.map((conn) => {
                   const parent = missions[conn.from];
                   const color = parent
-                    ? factionSvgColors[parent.faction]
+                    ? factionSvgColors[parent.faction] || "#000"
                     : "#000";
                   return (
                     <path
@@ -474,7 +566,7 @@ export default function QuestNodesView({
                     />
                   );
                 })}
-                {buildTempConnection && (
+                {buildTempConnection() && (
                   <path
                     d={buildTempConnection()}
                     stroke="#6b7280"
@@ -508,17 +600,19 @@ export default function QuestNodesView({
               >
                 {Object.entries(filtered).map(([id, quest]) => {
                   if (!positions[id]) return null;
-                  const factionConfig =
-                    factions.find((f) => f.name === quest.faction) || {};
+                  const fc = factions.find((f) => f.name === quest.faction) || {
+                    bgColor: "#fff",
+                    borderColor: "#000",
+                  };
                   return (
-                    <QuestNode
+                    <MemoNode
                       key={id}
                       quest={quest}
                       pos={positions[id]}
                       selected={selectedQuest === id}
-                      factionConfig={factionConfig}
+                      factionConfig={fc}
                       onClick={handleQuestClick}
-                      onStartConnect={onStartConnect}
+                      onStartConnect={(qId) => setConnecting(qId)}
                       onRequestDelete={setDeleteId}
                     />
                   );
@@ -532,10 +626,7 @@ export default function QuestNodesView({
               <Button onClick={openDetailsInNewWindow}>
                 Abrir em Outra Janela
               </Button>
-              <Button
-                className="mt-[-45px] mr-[-25px]"
-                onClick={() => toggleSection("details")}
-              >
+              <Button onClick={() => toggleSection("details")}>
                 {minimized.details ? <Maximize2 /> : <Minimize2 />}
               </Button>
             </div>
@@ -543,7 +634,7 @@ export default function QuestNodesView({
           </div>
           <div className="h-full z-50">
             {minimized.form ? (
-              <div className="flex items-center justify-center z-70 h-full">
+              <div className="flex items-center justify-center h-full">
                 <Button onClick={() => toggleSection("form")}>
                   <ChevronRight size={24} />
                 </Button>
@@ -551,7 +642,7 @@ export default function QuestNodesView({
             ) : (
               <>
                 <div className="flex p-4 border-b">
-                  <h2 className="text-lg font-bold">Nova card</h2>
+                  <h2 className="text-lg font-bold">Nova Card</h2>
                   <Button
                     className="absolute right-24"
                     onClick={openFormInNewWindow}

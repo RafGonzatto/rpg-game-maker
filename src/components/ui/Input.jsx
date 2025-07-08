@@ -1,20 +1,20 @@
-// Input.jsx
-import React from "react";
+// components/ui/Input.jsx
+import React, { forwardRef } from "react";
 
-export const Input = ({ prefixIcon, className = "", ...props }) => {
-  return (
-    <div className="relative">
-      {prefixIcon && (
-        <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-          {prefixIcon}
-        </div>
-      )}
-      <input
-        {...props}
-        className={`${className} ${
-          prefixIcon ? "pl-10" : "pl-3"
-        } py-2 border rounded`}
-      />
-    </div>
-  );
-};
+export const Input = forwardRef(({ prefixIcon, ...props }, ref) => (
+  <div className="relative">
+    {prefixIcon && (
+      <span className="absolute left-3 top-1/2 -translate-y-1/2">
+        {prefixIcon}
+      </span>
+    )}
+    <input
+      {...props}
+      ref={ref}
+      className={`pl-10 bg-amber-50 ${props.className}`}
+      onFocus={(e) => e.target.select()}
+    />
+  </div>
+));
+
+Input.displayName = "Input";

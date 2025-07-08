@@ -1,0 +1,235 @@
+/* Medieval Theme Styles */
+.quest-node {
+  background: linear-gradient(135deg, #f3e5ab 0%, #ede0a3 100%);
+  border: 2px solid #8b4513;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(139, 69, 19, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-family: 'Cinzel', serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.quest-node:hover {
+  box-shadow: 0 6px 12px rgba(139, 69, 19, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.quest-node.selected {
+  border-color: #ff6b35;
+  box-shadow: 0 0 20px rgba(255, 107, 53, 0.6);
+}
+
+.quest-node.connecting {
+  border-color: #4285f4;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Medieval Header */
+.medieval-header {
+  background: linear-gradient(180deg, #8b4513 0%, #654321 50%, #4a2c2a 100%);
+  border-bottom: 4px solid #2d1810;
+  position: relative;
+}
+
+.medieval-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #daa520, #ffd700, #daa520);
+}
+
+/* Beer Animation Enhancement */
+.beer-particle {
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.beer-container {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Animated Sprite Enhancement */
+.sprite-container {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Medieval Scrollbar */
+.medieval-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.medieval-scroll::-webkit-scrollbar-track {
+  background: #f1e5d0;
+  border-radius: 6px;
+}
+
+.medieval-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8b4513, #654321);
+  border-radius: 6px;
+  border: 2px solid #f1e5d0;
+}
+
+.medieval-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #a0522d, #8b4513);
+}
+
+/* Medieval Button Styles */
+.medieval-button {
+  background: linear-gradient(135deg, #daa520 0%, #b8860b 100%);
+  border: 2px solid #8b6914;
+  color: #2d1810;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(139, 105, 20, 0.3);
+  transition: all 0.2s ease;
+}
+
+.medieval-button:hover {
+  background: linear-gradient(135deg, #f0d040 0%, #daa520 100%);
+  box-shadow: 0 4px 8px rgba(139, 105, 20, 0.4);
+  transform: translateY(-1px);
+}
+
+.medieval-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(139, 105, 20, 0.3);
+}
+
+/* Medieval Form Elements */
+.medieval-input {
+  background: #f9f7f0;
+  border: 2px solid #8b4513;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #2d1810;
+  box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1);
+}
+
+.medieval-input:focus {
+  outline: none;
+  border-color: #daa520;
+  box-shadow: inset 0 2px 4px rgba(139, 69, 19, 0.1), 0 0 8px rgba(218, 165, 32, 0.3);
+}
+
+.medieval-select {
+  background: #f9f7f0;
+  border: 2px solid #8b4513;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #2d1810;
+  cursor: pointer;
+}
+
+/* Quest Graph Enhancement */
+.quest-graph-container {
+  background: radial-gradient(circle at 30% 30%, #fff8dc 0%, #f5f5dc 50%, #f0e68c 100%);
+  position: relative;
+}
+
+.quest-graph-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(218, 165, 32, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Connection Lines Enhancement */
+.quest-connection {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Responsive Enhancements */
+@media (max-width: 768px) {
+  .quest-node {
+    font-size: 0.8rem;
+    min-width: 120px;
+    padding: 8px;
+  }
+  
+  .medieval-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .controls-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quest-node {
+    font-size: 0.7rem;
+    min-width: 100px;
+    padding: 6px;
+  }
+  
+  .medieval-header {
+    height: 15vh;
+  }
+}
+
+/* Loading Animation */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Medieval Card Styles */
+.medieval-card {
+  background: linear-gradient(135deg, #f9f7f0 0%, #f5f3e8 100%);
+  border: 2px solid #8b4513;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(139, 69, 19, 0.2);
+}
+
+.medieval-card-header {
+  background: linear-gradient(135deg, #daa520 0%, #b8860b 100%);
+  border-bottom: 2px solid #8b6914;
+  color: #2d1810;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+/* Tooltip Styles */
+.medieval-tooltip {
+  background: linear-gradient(135deg, #2d1810 0%, #4a2c2a 100%);
+  color: #f9f7f0;
+  border: 1px solid #8b4513;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+/* Sidebar Enhancement */
+.medieval-sidebar {
+  background: linear-gradient(180deg, #f9f7f0 0%, #f5f3e8 100%);
+  border-left: 3px solid #8b4513;
+  box-shadow: -2px 0 8px rgba(139, 69, 19, 0.1);
+}
+
+/* Divider Styles */
+.medieval-divider {
+  background: linear-gradient(90deg, transparent 0%, #8b4513 20%, #daa520 50%, #8b4513 80%, transparent 100%);
+  height: 2px;
+  margin: 16px 0;
+}

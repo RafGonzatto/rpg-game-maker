@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  quest-visualizer:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=your-production-secret-here
+      - DATABASE_URL=file:./data/prod.db
+      # Add your OAuth credentials here
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+    volumes:
+      - quest_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  quest_data:

@@ -1,5 +1,6 @@
 ///////////////////////////////////////////////// QuestService.js
 import { questData, factionColors } from "./questData";
+import toast from 'react-hot-toast';
 
 const initialFactions = [
   { name: "Gangue Rival", bgColor: "#ef4444", borderColor: "#b91c1c" },
@@ -38,6 +39,7 @@ export const getInitialData = () => {
     }
   } catch (e) {
     console.error(e);
+    toast.error('Erro ao carregar dados das quests!');
   }
   const initialData = {
     missions: questData.missions,
@@ -56,6 +58,7 @@ export const saveData = (missions, factions, types) => {
     );
   } catch (e) {
     console.error(e);
+    toast.error('Erro ao salvar dados das quests!');
   }
 };
 
@@ -69,7 +72,7 @@ export const exportData = (missions, factions, types) => {
     a.download = `quest_data_${new Date().toISOString()}.json`;
     a.click();
   } catch (e) {
-    alert("Erro ao exportar: " + e.message);
+    toast.error("Erro ao exportar: " + e.message);
   }
 };
 
@@ -88,7 +91,7 @@ export const importData = (e, setMissions, setFactions, setTypes) => {
       // Salva os dados importados automaticamente
       saveData(data.missions, data.factions, data.types);
     } catch (err) {
-      alert("Erro na importação: " + err.message);
+      toast.error("Erro na importação: " + err.message);
     }
   };
   reader.readAsText(file);

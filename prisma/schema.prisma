@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  plan          String    @default("FREE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  quests        Quest[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Quest {
+  id         String             @id @default(cuid())
+  title      String
+  faction    String
+  type       String
+  dialogo    String?
+  userId     String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reputation QuestReputation[]
+  requiredBy QuestRequirement[] @relation("RequiredQuest")
+  requires   QuestRequirement[] @relation("QuestRequires")
+  unlockedBy QuestUnlock[]      @relation("UnlockedQuest")
+  unlocks    QuestUnlock[]      @relation("QuestUnlocks")
+}
+
+model QuestRequirement {
+  id         String @id @default(cuid())
+  questId    String
+  requiredId String
+  required   Quest  @relation("RequiredQuest", fields: [requiredId], references: [id], onDelete: Cascade)
+  quest      Quest  @relation("QuestRequires", fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([questId, requiredId])
+}
+
+model QuestUnlock {
+  id        String @id @default(cuid())
+  questId   String
+  unlocksId String
+  unlocks   Quest  @relation("UnlockedQuest", fields: [unlocksId], references: [id], onDelete: Cascade)
+  quest     Quest  @relation("QuestUnlocks", fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([questId, unlocksId])
+}
+
+model QuestReputation {
+  id      String @id @default(cuid())
+  questId String
+  faction String
+  value   Int
+  quest   Quest  @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([questId, faction])
+}
+
+model Faction {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  bgColor     String
+  borderColor String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model QuestType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

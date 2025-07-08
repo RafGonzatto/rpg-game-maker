@@ -1,6 +1,7 @@
 ////////////////////////////views/QuestGraphView.jsx
 
 import React, { useEffect, useRef, useState } from "react";
+import toast from 'react-hot-toast';
 import {
   forceSimulation,
   forceLink,
@@ -12,7 +13,7 @@ import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { Button } from "../components/ui/Button";
 import { questData, factionColors } from "../components/questData";
-import NewQuestForm from "./NewQuestForm";
+//import NewQuestForm from "./NewQuestForm";
 
 const CARD_WIDTH = 200;
 const CARD_HEIGHT = 92;
@@ -128,15 +129,20 @@ export default function QuestGraphView({
 
   const handleDeleteConfirm = () => {
     if (!deleteId) return;
-    const newM = { ...missions };
-    Object.values(newM).forEach((q) => {
-      q.requires = q.requires.filter((r) => r !== deleteId);
-      q.unlocks = q.unlocks.filter((u) => u !== deleteId);
-    });
-    delete newM[deleteId];
-    setMissions(newM);
-    if (selectedQuest === deleteId) setSelectedQuest(null);
-    setDeleteId(null);
+    try {
+      const newM = { ...missions };
+      Object.values(newM).forEach((q) => {
+        q.requires = q.requires.filter((r) => r !== deleteId);
+        q.unlocks = q.unlocks.filter((u) => u !== deleteId);
+      });
+      delete newM[deleteId];
+      setMissions(newM);
+      if (selectedQuest === deleteId) setSelectedQuest(null);
+      setDeleteId(null);
+      toast.success('Missão excluída com sucesso!');
+    } catch (e) {
+      toast.error('Erro ao excluir missão!');
+    }
   };
 
   const QuestDetails = ({ questId }) => {
@@ -418,11 +424,11 @@ export default function QuestGraphView({
           ) : (
             <>
               <h2 className="font-bold text-lg mb-2">Nova Missão</h2>
-              <NewQuestForm
+              {/* <NewQuestForm
                 onSave={onAddQuest}
                 missions={missions}
                 factions={questData.factions}
-              />
+              /> */}
             </>
           )}
         </div>
