@@ -91,7 +91,7 @@ function Particles({
       }, particleAnimationDuration);
     }, 200);
     return () => clearInterval(timer);
-  }, [isActive, beerRef, particleAnimationDuration]);
+  }, [isActive, beerRef, particleBaseSize, particleSizeVariation, particleAnimationDuration]);
 
   return (
     <div className="absolute inset-0 top-3 ">

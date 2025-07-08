@@ -119,7 +119,7 @@ export function QuestNodesView({
       }
     });
     setPositions(newPositions);
-  }, [quests]);
+  }, [quests, positions]);
 
   // Update wall position
   useEffect(() => {

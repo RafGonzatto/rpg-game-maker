@@ -275,7 +275,7 @@ export default function QuestNodesView({
   const handleSectionClick = (e) => {
     if (!e.target.closest(INTERACTIVE) && !connecting) setConnecting(null);
   };
-  const DetailsContent = memo(() => {
+  const DetailsContent = memo(function DetailsContent() {
     if (!selectedQuest) return null;
     const quest = missions[selectedQuest];
     if (!quest) return null;
@@ -370,79 +370,84 @@ export default function QuestNodesView({
       </Card>
     );
   });
-  const FormContent = memo(() => (
-    <>
-      <NewQuestForm
-        onSave={saveMission}
-        missions={missions}
-        factions={factions}
-        types={types}
-      />
-      <h2 className="text-lg font-bold mb-4 mt-6">Gerenciar Facções</h2>
-      <form onSubmit={handleAddFaction} className="space-y-4">
-        <Label>Nome da Facção</Label>
-        <Input
-          required
-          value={newFaction.name}
-          onChange={(e) =>
-            setNewFaction({ ...newFaction, name: e.target.value })
-          }
+  DetailsContent.displayName = "DetailsContent";
+
+  const FormContent = memo(function FormContent() {
+    return (
+      <div>
+        <NewQuestForm
+          onSave={saveMission}
+          missions={missions}
+          factions={factions}
+          types={types}
         />
-        <Label>Cor de Fundo</Label>
-        <div className="flex items-center gap-2">
+        <h2 className="text-lg font-bold mb-4 mt-6">Gerenciar Facções</h2>
+        <form onSubmit={handleAddFaction} className="space-y-4">
+          <Label>Nome da Facção</Label>
           <Input
             required
-            type="color"
-            className="w-24 h-10 cursor-pointer"
-            value={newFaction.bgColor}
+            value={newFaction.name}
             onChange={(e) =>
-              setNewFaction({ ...newFaction, bgColor: e.target.value })
+              setNewFaction({ ...newFaction, name: e.target.value })
             }
           />
-          <span className="text-sm">{newFaction.bgColor}</span>
-        </div>
-        <Label>Cor da Borda</Label>
-        <div className="flex items-center gap-2">
+          <Label>Cor de Fundo</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              required
+              type="color"
+              className="w-24 h-10 cursor-pointer"
+              value={newFaction.bgColor}
+              onChange={(e) =>
+                setNewFaction({ ...newFaction, bgColor: e.target.value })
+              }
+            />
+            <span className="text-sm">{newFaction.bgColor}</span>
+          </div>
+          <Label>Cor da Borda</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              required
+              type="color"
+              className="w-24 h-10 cursor-pointer"
+              value={newFaction.borderColor}
+              onChange={(e) =>
+                setNewFaction({ ...newFaction, borderColor: e.target.value })
+              }
+            />
+            <span className="text-sm">{newFaction.borderColor}</span>
+          </div>
+          <div className="mt-4">
+            <Label>Prévia</Label>
+            <div
+              className="mt-2 h-16 rounded-lg border-4"
+              style={{
+                backgroundColor: newFaction.bgColor,
+                borderColor: newFaction.borderColor,
+              }}
+            />
+          </div>
+          <Button type="submit" className="w-full mt-4">
+            Adicionar Facção
+          </Button>
+        </form>
+        <h2 className="text-lg font-bold mb-2 mt-8">Gerenciar Tipos</h2>
+        <form onSubmit={handleAddType} className="space-y-2">
           <Input
             required
-            type="color"
-            className="w-24 h-10 cursor-pointer"
-            value={newFaction.borderColor}
-            onChange={(e) =>
-              setNewFaction({ ...newFaction, borderColor: e.target.value })
-            }
+            type="text"
+            placeholder="Nome do Tipo"
+            value={newType}
+            onChange={(e) => setNewType(e.target.value)}
           />
-          <span className="text-sm">{newFaction.borderColor}</span>
-        </div>
-        <div className="mt-4">
-          <Label>Prévia</Label>
-          <div
-            className="mt-2 h-16 rounded-lg border-4"
-            style={{
-              backgroundColor: newFaction.bgColor,
-              borderColor: newFaction.borderColor,
-            }}
-          />
-        </div>
-        <Button type="submit" className="w-full mt-4">
-          Adicionar Facção
-        </Button>
-      </form>
-      <h2 className="text-lg font-bold mb-2 mt-8">Gerenciar Tipos</h2>
-      <form onSubmit={handleAddType} className="space-y-2">
-        <Input
-          required
-          type="text"
-          placeholder="Nome do Tipo"
-          value={newType}
-          onChange={(e) => setNewType(e.target.value)}
-        />
-        <Button type="submit" className="w-full">
-          Adicionar Tipo
-        </Button>
-      </form>
-    </>
-  ));
+          <Button type="submit" className="w-full">
+            Adicionar Tipo
+          </Button>
+        </form>
+      </div>
+    );
+  });
+  FormContent.displayName = "FormContent";
   const MemoNode = memo(QuestNode);
 
   return (

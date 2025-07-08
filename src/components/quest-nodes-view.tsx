@@ -122,8 +122,8 @@ export function QuestNodesView({
         newPositions[quest.id] = positions[quest.id];
       }
     });
-    setPositions(newPositions);
-  }, [quests]);
+    setPositions({ ...newPositions });
+  }, [quests, positions]);
 
   // Update wall position
   useEffect(() => {
@@ -243,7 +243,7 @@ export function QuestNodesView({
     // Importar a função de layout
     import('../controllers/QuestService').then(({ calculatePositions }) => {
       const newPositions = calculatePositions(questsObject);
-      setPositions(newPositions);
+      setPositions(newPositions as Record<string, { x: number; y: number }>);
       toast.success('Layout automático aplicado!');
     });
   };

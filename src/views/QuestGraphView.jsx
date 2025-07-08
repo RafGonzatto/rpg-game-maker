@@ -83,8 +83,7 @@ export default function QuestGraphView({
     return () => sim.stop();
   }, [nodes, links]);
 
-  if (!missions) return <p>Carregando missões...</p>;
-
+  // Move all hooks to top-level, before any return/conditional
   // Atualiza a simulação quando os sliders mudam
   useEffect(() => {
     if (simRef.current) {
@@ -108,6 +107,8 @@ export default function QuestGraphView({
   });
   const handleZoomIn = () => setZoom((z) => z * 1.1);
   const handleZoomOut = () => setZoom((z) => z / 1.1);
+
+  if (!missions) return <p>Carregando missões...</p>;
 
   const handleNodeClick = (nodeId) => {
     if (connecting && connecting !== nodeId) {

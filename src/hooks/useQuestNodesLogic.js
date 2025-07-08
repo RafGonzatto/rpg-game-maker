@@ -91,11 +91,11 @@ export default function useQuestNodesLogic({
   };
   const handlePanEnd = () => setIsPanning(false);
 
-  const handleWheel = (e) => {
+  const handleWheel = useCallback((e) => {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 1.2 : 0.8;
     setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
-  };
+  }, []);
   const handleZoomIn = () => setZoom((z) => Math.min(MAX_ZOOM, z * 1.2));
   const handleZoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, z / 1.2));
 
@@ -156,11 +156,12 @@ export default function useQuestNodesLogic({
 
   // Roda do mouse
   useEffect(() => {
-    if (sectionRef.current) {
-      sectionRef.current.addEventListener("wheel", handleWheel, {
+    const section = sectionRef.current;
+    if (section) {
+      section.addEventListener("wheel", handleWheel, {
         passive: false,
       });
-      return () => sectionRef.current.removeEventListener("wheel", handleWheel);
+      return () => section.removeEventListener("wheel", handleWheel);
     }
   }, [handleWheel]);
 
@@ -273,6 +274,8 @@ export default function useQuestNodesLogic({
   };
 
   // Fecha janela externa detalhes
+  // Remove duplicate declaration of toggleSection. The original implementation should be kept below.
+
   useEffect(() => {
     if (!detailsWindow) return;
     const onUnload = () => {
@@ -282,7 +285,7 @@ export default function useQuestNodesLogic({
     };
     detailsWindow.addEventListener("beforeunload", onUnload);
     return () => detailsWindow.removeEventListener("beforeunload", onUnload);
-  }, [detailsWindow, minimized.details]);
+  }, [detailsWindow, minimized.details, toggleSection]);
 
   // Fecha janela externa form
   useEffect(() => {
@@ -294,7 +297,7 @@ export default function useQuestNodesLogic({
     };
     formWindow.addEventListener("beforeunload", onUnload);
     return () => formWindow.removeEventListener("beforeunload", onUnload);
-  }, [formWindow, minimized.form]);
+  }, [formWindow, minimized.form, toggleSection]);
 
   // Minimiza seções
   const toggleSection = (section) => {
